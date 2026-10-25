@@ -1,0 +1,37 @@
+# Upsun configuration, generated using AI at: 2026-10-25T10:59:52-05:00
+# AI can make mistakes. Please modify this file to suit your needs.
+applications:
+  app:
+    type: nodejs:26
+
+    build:
+      flavor: none
+
+    dependencies:
+      nodejs:
+        pnpm: "*"
+
+    hooks:
+      build: |
+        set -ex
+        pnpm install
+        pnpm run build
+
+    web:
+      commands:
+        start: sleep infinity
+
+      locations:
+        /:
+          root: dist
+          index: [index.html]
+          scripts: false
+          expires: 24h
+          rules:
+            '\.(css|js|gif|jpe?g|png|svg|webp)$':
+              expires: 4w
+
+routes:
+  https://{default}/:
+    type: upstream
+    upstream: app:http
