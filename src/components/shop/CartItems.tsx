@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { cart, lineKey, MAX_QUANTITY, type CartLine } from '../../lib/cart';
 import {
   colorLabel,
@@ -10,50 +10,63 @@ import { ShopLink } from './ShopLink';
 
 function QuantityControl({ line, label }: { line: CartLine; label: string }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
+  const errorId = useId();
   const key = lineKey(line);
   return (
-    <div className="quantity-control">
-      <button
-        type="button"
-        disabled={line.quantity <= 1}
-        aria-label={`Decrease ${label.toLowerCase()}`}
-        onClick={() => {
-          setDraft(null);
-          cart.quantity(key, line.quantity - 1);
-        }}
-      >
-        −
-      </button>
-      <input
-        aria-label={label}
-        type="number"
-        min="1"
-        max={MAX_QUANTITY}
-        value={draft ?? line.quantity}
-        onChange={(event) => {
-          setDraft(event.currentTarget.value);
-          const quantity = event.currentTarget.valueAsNumber;
-          if (
-            Number.isInteger(quantity) &&
-            quantity >= 1 &&
-            quantity <= MAX_QUANTITY
-          )
-            cart.quantity(key, quantity);
-        }}
-        onBlur={() => setDraft(null)}
-      />
-      <button
-        type="button"
-        disabled={line.quantity >= MAX_QUANTITY}
-        aria-label={`Increase ${label.toLowerCase()}`}
-        onClick={() => {
-          setDraft(null);
-          cart.quantity(key, line.quantity + 1);
-        }}
-      >
-        +
-      </button>
-    </div>
+    <>
+      <div className="quantity-control">
+        <button
+          type="button"
+          disabled={line.quantity <= 1}
+          aria-label={`Decrease ${label.toLowerCase()}`}
+          onClick={() => {
+            setDraft(null);
+            setHasError(false);
+            cart.quantity(key, line.quantity - 1);
+          }}
+        >
+          −
+        </button>
+        <input
+          aria-label={label}
+          type="number"
+          min="1"
+          max={MAX_QUANTITY}
+          value={draft ?? line.quantity}
+          aria-invalid={draft !== null && hasError}
+          aria-describedby={hasError ? errorId : undefined}
+          onChange={(event) => {
+            setDraft(event.currentTarget.value);
+            const quantity = event.currentTarget.valueAsNumber;
+            const valid =
+              Number.isInteger(quantity) &&
+              quantity >= 1 &&
+              quantity <= MAX_QUANTITY;
+            setHasError(event.currentTarget.value !== '' && !valid);
+            if (valid) cart.quantity(key, quantity);
+          }}
+          onBlur={() => setDraft(null)}
+        />
+        <button
+          type="button"
+          disabled={line.quantity >= MAX_QUANTITY}
+          aria-label={`Increase ${label.toLowerCase()}`}
+          onClick={() => {
+            setDraft(null);
+            setHasError(false);
+            cart.quantity(key, line.quantity + 1);
+          }}
+        >
+          +
+        </button>
+      </div>
+      {hasError && (
+        <p className="quantity-error" id={errorId} role="status">
+          Use a whole number from 1 to 99. Last valid quantity: {line.quantity}.
+        </p>
+      )}
+    </>
   );
 }
 

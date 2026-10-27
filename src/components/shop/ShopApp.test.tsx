@@ -55,6 +55,10 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   const user = userEvent.setup();
   render(<ShopApp products={[product]} />);
   await screen.findByRole('heading', { name: product.slogan });
+  await user.tab();
+  expect(document.activeElement).toBe(
+    screen.getByRole('link', { name: 'noslopfactory home' }),
+  );
   await user.click(screen.getByRole('radio', { name: 'M' }));
   await user.click(screen.getByRole('button', { name: 'Add to cart $32' }));
   await user.click(screen.getByRole('button', { name: 'Open cart, 1 item' }));
@@ -87,6 +91,13 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   await user.clear(quantity);
   await user.tab();
   expect(quantity.value).toBe('2');
+  await user.clear(quantity);
+  await user.type(quantity, '150');
+  expect(screen.getByText(/Use a whole number from 1 to 99/)).toBeTruthy();
+  expect(quantity.getAttribute('aria-invalid')).toBe('true');
+  await user.tab();
+  expect(Number(quantity.value)).toBeLessThanOrEqual(99);
+  expect(screen.getByText(/Use a whole number from 1 to 99/)).toBeTruthy();
   await user.clear(quantity);
   await user.type(quantity, '1');
   await user.tab();

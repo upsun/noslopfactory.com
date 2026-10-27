@@ -1523,3 +1523,10 @@ em {
     font-size: clamp(38px, 10vw, 52px);
   }
 }
+
+.quantity-error {
+  max-width: 200px;
+  margin-top: 8px;
+  font-size: 10px;
+  line-height: 1.5;
+}

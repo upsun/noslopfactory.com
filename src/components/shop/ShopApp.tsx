@@ -41,8 +41,8 @@ function RouteEffects() {
   }, [pathname, products]);
   useEffect(
     () =>
-      router.subscribe('onRendered', ({ pathChanged }) => {
-        if (!pathChanged) return;
+      router.subscribe('onRendered', ({ pathChanged, fromLocation }) => {
+        if (!fromLocation || !pathChanged) return;
         const main = document.getElementById('main');
         main?.setAttribute('tabindex', '-1');
         main?.focus({ preventScroll: true });
