@@ -56,7 +56,7 @@ export default function Cart() {
         <aside className="order-summary">
           <h2>The short version.</h2>
           <OrderTotals totals={cartTotals(state.lines, products)} />
-          <p className="meta">USD. Flat $9 shipping. No tax charges.</p>
+          <p className="meta">USD. No tax charges.</p>
           <Link className="button button--dark button--wide" to="/checkout">
             Simulated checkout <Arrow />
           </Link>

@@ -150,7 +150,8 @@ function restoreOrder(raw: string | null): DemoOrder | null {
       });
     }
     // Receipts saved before shipping was introduced keep their original total.
-    const shippingCents = value.shippingCents ?? 0;
+    const shippingCents =
+      value.shippingCents === undefined ? 0 : value.shippingCents;
     if (shippingCents !== 0 && shippingCents !== SHIPPING_CENTS) return null;
     const totalCents = lines.reduce(
       (sum, line) => sum + line.priceCents * line.quantity,

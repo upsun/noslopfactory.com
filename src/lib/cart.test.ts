@@ -327,6 +327,11 @@ describe('simulated checkout', () => {
       { ...order, totalCents: 1 },
       { ...order, shippingCents: -900 },
       { ...order, shippingCents: '900' },
+      {
+        ...order,
+        shippingCents: null,
+        totalCents: order.totalCents - order.shippingCents,
+      },
       { ...order, reference: 'REAL-ORDER' },
       { ...order, lines: [] },
       {

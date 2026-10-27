@@ -95,7 +95,7 @@ export default function Checkout() {
             })}
           </ul>
           <OrderTotals totals={cartTotals(state.lines, products)} />
-          <p className="meta">USD. Flat $9 shipping. No tax charges.</p>
+          <p className="meta">USD. No tax charges.</p>
           <button
             className="button button--dark button--wide"
             type="button"
