@@ -6,6 +6,7 @@ import {
   createCart,
   lineKey,
   restoreLines,
+  shippingForSubtotal,
   type StoragePort,
 } from './cart';
 import { money, type Product } from './catalog';
@@ -72,13 +73,13 @@ describe('variant-aware cart', () => {
   it('charges shipping once per non-empty cart and removes it with the last product', () => {
     const { cart } = setup();
     const totals = () => cartTotals(cart.store.get().lines, products);
-    expect(totals()).toEqual({
+    expect(totals()).toMatchObject({
       subtotalCents: 0,
       shippingCents: 0,
       totalCents: 0,
     });
     cart.add('sticker', 'off-white', 'One format');
-    expect(totals()).toEqual({
+    expect(totals()).toMatchObject({
       subtotalCents: 400,
       shippingCents: 900,
       totalCents: 1300,
@@ -86,13 +87,13 @@ describe('variant-aware cart', () => {
     cart.quantity(lineKey(cart.store.get().lines[0]!), 3);
     cart.add('tee', 'black', 'M');
     cart.add('tee', 'off-white', 'M');
-    expect(totals()).toEqual({
+    expect(totals()).toMatchObject({
       subtotalCents: 7600,
-      shippingCents: 900,
-      totalCents: 8500,
+      shippingCents: 0,
+      totalCents: 7600,
     });
     for (const item of cart.store.get().lines) cart.remove(lineKey(item));
-    expect(totals()).toEqual({
+    expect(totals()).toMatchObject({
       subtotalCents: 0,
       shippingCents: 0,
       totalCents: 0,
@@ -288,8 +289,8 @@ describe('simulated checkout', () => {
     cart.add('tee', 'black', 'M', 2);
     cart.add('sticker', 'off-white', 'One format');
     const order = cart.placeOrder(() => 'DEMO-TEST');
-    expect(order?.totalCents).toBe(7700);
-    expect(order?.shippingCents).toBe(900);
+    expect(order?.totalCents).toBe(6800);
+    expect(order?.shippingCents).toBe(0);
     expect(order?.lines[0]?.title).toBe(shirt.title);
     expect(cart.store.get().lines).toEqual([]);
     expect(JSON.parse(local.getItem(CART_KEY)!)).toEqual({
@@ -299,7 +300,7 @@ describe('simulated checkout', () => {
     expect(cart.placeOrder(() => 'DEMO-DUPLICATE')).toBeNull();
     expect(setup(local, session).cart.store.get().order).toEqual(order);
     cart.add('tee', 'black', 'XS');
-    expect(cart.store.get().order?.totalCents).toBe(7700);
+    expect(cart.store.get().order?.totalCents).toBe(6800);
     expect(cart.store.get().order?.lines).toHaveLength(2);
   });
 
@@ -343,5 +344,118 @@ describe('simulated checkout', () => {
       const session = memoryStorage({ [ORDER_KEY]: JSON.stringify(tampered) });
       expect(setup(memoryStorage(), session).cart.store.get().order).toBeNull();
     }
+  });
+});
+
+describe('free shipping', () => {
+  const totalsFor = (subtotalCents: number, quantity = 1) =>
+    cartTotals(
+      [{ ...line, quantity }],
+      [{ ...shirt, priceCents: subtotalCents / quantity }],
+    );
+
+  it('has no progress or fee for an empty cart', () => {
+    expect(cartTotals([], products)).toEqual({
+      subtotalCents: 0,
+      shippingCents: 0,
+      totalCents: 0,
+      freeShippingThresholdCents: 4000,
+      remainingCents: 4000,
+      progress: 0,
+      freeShippingUnlocked: false,
+    });
+    expect(shippingForSubtotal(0, false)).toBe(0);
+  });
+  it('keeps the $9 fee below $40, judged on the subtotal before shipping', () => {
+    expect(totalsFor(3200)).toMatchObject({
+      shippingCents: 900,
+      totalCents: 4100,
+      remainingCents: 800,
+      progress: 0.8,
+      freeShippingUnlocked: false,
+    });
+    expect(totalsFor(3999)).toMatchObject({
+      shippingCents: 900,
+      remainingCents: 1,
+      freeShippingUnlocked: false,
+    });
+  });
+  it('unlocks free shipping exactly at $40', () => {
+    expect(totalsFor(4000)).toMatchObject({
+      shippingCents: 0,
+      totalCents: 4000,
+      remainingCents: 0,
+      progress: 1,
+      freeShippingUnlocked: true,
+    });
+  });
+  it('caps progress at 100% above $40', () => {
+    expect(totalsFor(4100)).toMatchObject({
+      shippingCents: 0,
+      totalCents: 4100,
+      remainingCents: 0,
+      progress: 1,
+      freeShippingUnlocked: true,
+    });
+    expect(totalsFor(25000, 5).progress).toBe(1);
+  });
+  it('recalculates when changes cross the threshold in either direction', () => {
+    const { cart } = setup();
+    const totals = () => cartTotals(cart.store.get().lines, products);
+    cart.add('tee', 'black', 'M');
+    expect(totals()).toMatchObject({ subtotalCents: 3200, shippingCents: 900 });
+    cart.add('sticker', 'off-white', 'One format');
+    expect(totals()).toMatchObject({ subtotalCents: 3600, shippingCents: 900 });
+    cart.add('sticker', 'off-white', 'One format');
+    expect(totals()).toMatchObject({
+      subtotalCents: 4000,
+      shippingCents: 0,
+      freeShippingUnlocked: true,
+    });
+    const stickerKey = lineKey(cart.store.get().lines[1]!);
+    cart.quantity(stickerKey, 1);
+    expect(totals()).toMatchObject({
+      subtotalCents: 3600,
+      shippingCents: 900,
+      freeShippingUnlocked: false,
+    });
+    cart.quantity(stickerKey, 2);
+    expect(totals().shippingCents).toBe(0);
+    cart.remove(stickerKey);
+    expect(totals()).toMatchObject({ subtotalCents: 3200, shippingCents: 900 });
+  });
+  it('snapshots the computed shipping in new receipts', () => {
+    const free = setup().cart;
+    free.add('tee', 'black', 'M');
+    free.add('sticker', 'off-white', 'One format', 2);
+    expect(free.placeOrder(() => 'DEMO-FREE')).toMatchObject({
+      shippingCents: 0,
+      totalCents: 4000,
+    });
+    const paid = setup().cart;
+    paid.add('tee', 'black', 'M');
+    expect(paid.placeOrder(() => 'DEMO-PAID')).toMatchObject({
+      shippingCents: 900,
+      totalCents: 4100,
+    });
+  });
+  it('restores free-shipping receipts and keeps existing $9 receipts unchanged', () => {
+    const { cart, session } = setup();
+    cart.add('tee', 'black', 'M');
+    cart.add('sticker', 'off-white', 'One format', 2);
+    const order = cart.placeOrder(() => 'DEMO-ROUNDTRIP')!;
+    expect(setup(memoryStorage(), session).cart.store.get().order).toEqual(
+      order,
+    );
+    const existing = {
+      ...order,
+      reference: 'DEMO-EXISTING',
+      shippingCents: 900,
+      totalCents: 4900,
+    };
+    const stored = memoryStorage({ [ORDER_KEY]: JSON.stringify(existing) });
+    expect(setup(memoryStorage(), stored).cart.store.get().order).toEqual(
+      existing,
+    );
   });
 });

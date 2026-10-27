@@ -5,7 +5,10 @@ export function OrderTotals({
   totals,
   totalLabel = 'Total',
 }: {
-  totals: ReturnType<typeof cartTotals>;
+  totals: Pick<
+    ReturnType<typeof cartTotals>,
+    'subtotalCents' | 'shippingCents' | 'totalCents'
+  >;
   totalLabel?: string;
 }) {
   return (
