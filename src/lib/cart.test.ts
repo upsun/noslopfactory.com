@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   CART_KEY,
   ORDER_KEY,
-  cartTotal,
+  cartTotals,
   createCart,
   lineKey,
   restoreLines,
@@ -69,11 +69,41 @@ function setup(local = memoryStorage(), session = memoryStorage()) {
 }
 
 describe('variant-aware cart', () => {
+  it('charges shipping once per non-empty cart and removes it with the last product', () => {
+    const { cart } = setup();
+    const totals = () => cartTotals(cart.store.get().lines, products);
+    expect(totals()).toEqual({
+      subtotalCents: 0,
+      shippingCents: 0,
+      totalCents: 0,
+    });
+    cart.add('sticker', 'off-white', 'One format');
+    expect(totals()).toEqual({
+      subtotalCents: 400,
+      shippingCents: 900,
+      totalCents: 1300,
+    });
+    cart.quantity(lineKey(cart.store.get().lines[0]!), 3);
+    cart.add('tee', 'black', 'M');
+    cart.add('tee', 'off-white', 'M');
+    expect(totals()).toEqual({
+      subtotalCents: 7600,
+      shippingCents: 900,
+      totalCents: 8500,
+    });
+    for (const item of cart.store.get().lines) cart.remove(lineKey(item));
+    expect(totals()).toEqual({
+      subtotalCents: 0,
+      shippingCents: 0,
+      totalCents: 0,
+    });
+  });
   it('formats editable prices without rounding away cents', () => {
     expect(money(3200)).toBe('$32');
     expect(money(3250)).toBe('$32.50');
     expect(
-      cartTotal([{ ...line, quantity: 3 }], [{ ...shirt, priceCents: 3250 }]),
+      cartTotals([{ ...line, quantity: 3 }], [{ ...shirt, priceCents: 3250 }])
+        .subtotalCents,
     ).toBe(9750);
   });
   it('combines matching variants while retaining each color and size separately', () => {
@@ -91,7 +121,9 @@ describe('variant-aware cart', () => {
       ['off-white', 'M', 1],
       ['black', 'XS', 1],
     ]);
-    expect(cartTotal(cart.store.get().lines, products)).toBe(16000);
+    expect(cartTotals(cart.store.get().lines, products).subtotalCents).toBe(
+      16000,
+    );
   });
 
   it('rejects unavailable products, variants and invalid quantities', () => {
@@ -110,10 +142,14 @@ describe('variant-aware cart', () => {
     cart.add('tee', 'off-white', 'M');
     cart.add('sticker', 'off-white', 'One format', 3);
     cart.quantity(lineKey(line), 4);
-    expect(cartTotal(cart.store.get().lines, products)).toBe(17200);
+    expect(cartTotals(cart.store.get().lines, products).subtotalCents).toBe(
+      17200,
+    );
     cart.remove(lineKey(line));
     expect(cart.store.get().lines).toHaveLength(2);
-    expect(cartTotal(cart.store.get().lines, products)).toBe(4400);
+    expect(cartTotals(cart.store.get().lines, products).subtotalCents).toBe(
+      4400,
+    );
   });
 
   it('caps quantity at 99 and rejects invalid quantity edits', () => {
@@ -157,7 +193,9 @@ describe('browser persistence', () => {
       [CART_KEY]: saved([{ ...line, priceCents: 1, quantity: 2 }]),
     });
     const { cart } = setup(local);
-    expect(cartTotal(cart.store.get().lines, products)).toBe(6400);
+    expect(cartTotals(cart.store.get().lines, products).subtotalCents).toBe(
+      6400,
+    );
     cart.add('sticker', 'off-white', 'One format');
     const refreshed = setup(local).cart;
     expect(refreshed.store.get().lines).toHaveLength(2);
@@ -200,7 +238,7 @@ describe('browser persistence', () => {
     const { cart } = setup(unavailable, unavailable);
     expect(cart.store.get().storageBlocked).toBe(true);
     expect(cart.add('tee', 'black', 'M')).toBe(true);
-    expect(cart.placeOrder(() => 'DEMO-BLOCKED')?.totalCents).toBe(3200);
+    expect(cart.placeOrder(() => 'DEMO-BLOCKED')?.totalCents).toBe(4100);
     expect(cart.store.get().lines).toEqual([]);
   });
 
@@ -223,6 +261,17 @@ describe('browser persistence', () => {
 });
 
 describe('simulated checkout', () => {
+  it('preserves pre-shipping receipts without adding a retroactive fee', () => {
+    const { cart } = setup();
+    cart.add('tee', 'black', 'M');
+    const { shippingCents, ...legacy } = cart.placeOrder(() => 'DEMO-LEGACY')!;
+    legacy.totalCents -= shippingCents;
+    const session = memoryStorage({ [ORDER_KEY]: JSON.stringify(legacy) });
+    expect(setup(memoryStorage(), session).cart.store.get().order).toEqual({
+      ...legacy,
+      shippingCents: 0,
+    });
+  });
   it('creates demo references even when secure-context crypto APIs are unavailable', () => {
     vi.stubGlobal('crypto', undefined);
     try {
@@ -239,7 +288,8 @@ describe('simulated checkout', () => {
     cart.add('tee', 'black', 'M', 2);
     cart.add('sticker', 'off-white', 'One format');
     const order = cart.placeOrder(() => 'DEMO-TEST');
-    expect(order?.totalCents).toBe(6800);
+    expect(order?.totalCents).toBe(7700);
+    expect(order?.shippingCents).toBe(900);
     expect(order?.lines[0]?.title).toBe(shirt.title);
     expect(cart.store.get().lines).toEqual([]);
     expect(JSON.parse(local.getItem(CART_KEY)!)).toEqual({
@@ -249,7 +299,7 @@ describe('simulated checkout', () => {
     expect(cart.placeOrder(() => 'DEMO-DUPLICATE')).toBeNull();
     expect(setup(local, session).cart.store.get().order).toEqual(order);
     cart.add('tee', 'black', 'XS');
-    expect(cart.store.get().order?.totalCents).toBe(6800);
+    expect(cart.store.get().order?.totalCents).toBe(7700);
     expect(cart.store.get().order?.lines).toHaveLength(2);
   });
 
@@ -261,6 +311,7 @@ describe('simulated checkout', () => {
       'createdAt',
       'lines',
       'reference',
+      'shippingCents',
       'totalCents',
     ]);
     expect(session.getItem(ORDER_KEY)).not.toMatch(
@@ -274,6 +325,8 @@ describe('simulated checkout', () => {
     const order = cart.placeOrder(() => 'DEMO-VALID')!;
     for (const tampered of [
       { ...order, totalCents: 1 },
+      { ...order, shippingCents: -900 },
+      { ...order, shippingCents: '900' },
       { ...order, reference: 'REAL-ORDER' },
       { ...order, lines: [] },
       {

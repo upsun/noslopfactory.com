@@ -6,7 +6,7 @@ Governing issue: https://github.com/upsun/noslopfactory.com/issues/1
 
 ## Outcome
 
-Build a convincing, explicitly simulated merchandise shop at `/shop`. Keep `/` as a placeholder for the future educational website. No real transactions, payment fields, personal information, accounts, shipping, taxes, or server-side order storage.
+Build a convincing, explicitly simulated merchandise shop at `/shop`. Keep `/` as a placeholder for the future educational website. No real transactions, payment fields, personal information, accounts, physical shipping, taxes, or server-side order storage.
 
 ## Design and content
 
@@ -35,6 +35,8 @@ Astro owns public documents and build-time content validation. A React applicati
 The cart persists in versioned browser localStorage. A line is identified by product, color and size. Store only product identifiers, selections and quantity; derive current prices from content. Reject malformed storage and unavailable products/variants, cap quantities at 99, and keep the shop usable when storage is blocked. Reconcile storage events between tabs. No network API is needed.
 
 Simulated checkout presents an order summary and one explicit demo-order action. Confirmation records an immutable snapshot and a locally generated demo reference; it clears the cart once. Keep only the most recent demo confirmation in the current tab's sessionStorage, so confirmation refresh works without storing personal information or creating a real order. An absent confirmation or empty checkout offers a route back to shopping.
+
+As approved by G/ on 2026-10-27 in [issue #4](https://github.com/upsun/noslopfactory.com/issues/4), add a flat $9 USD shipping fee once per non-empty cart. Empty carts have a $0 shipping fee and total. Show subtotal, shipping and total consistently in the mini cart, cart, checkout and fake confirmation. Persist the fee in new receipt snapshots; restore older receipts with no added fee.
 
 ## Implementation and verification
 
