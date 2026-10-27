@@ -1,16 +1,42 @@
 ---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
+const products = (await getCollection('products'))
+  .map(({ id, data }) => ({ id, ...data }))
+  .sort((a, b) => a.order - b.order);
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<BaseLayout title="Less slop. More thought.">
+  <Header products={products} client:load />
+  <main class="home-placeholder wrap" id="main">
+    <span class="eyebrow">NOSLOPFACTORY / A WORK IN PROGRESS</span>
+    <h1>
+      Less slop.
+      <br />
+      More <em>thought.</em>
+      <span class="home-asterisk" aria-hidden="true">
+        *
+      </span>
+    </h1>
+    <div class="home-placeholder__bottom">
+      <div>
+        <p>
+          A little more understanding.
+          <br />A little less taking the machine at its word.
+        </p>
+        <p class="muted">
+          The educational part is coming.
+          <br />
+          The imaginary merchandise is already here.
+        </p>
+      </div>
+      <a class="button button--dark" href="/shop">
+        Visit the demo shop <span aria-hidden="true">↗</span>
+      </a>
+    </div>
+    <span class="eyebrow home-footnote">*HUMAN INPUT STILL REQUIRED.</span>
+  </main>
+  <Footer />
+</BaseLayout>
