@@ -13,6 +13,8 @@ function QuantityControl({ line, label }: { line: CartLine; label: string }) {
   const [hasError, setHasError] = useState(false);
   const errorId = useId();
   const key = lineKey(line);
+  // Restored values are valid; the live status still announces the correction.
+  const invalidDraft = draft !== null && hasError;
   return (
     <>
       <div className="quantity-control">
@@ -34,8 +36,8 @@ function QuantityControl({ line, label }: { line: CartLine; label: string }) {
           min="1"
           max={MAX_QUANTITY}
           value={draft ?? line.quantity}
-          aria-invalid={draft !== null && hasError}
-          aria-describedby={hasError ? errorId : undefined}
+          aria-invalid={invalidDraft}
+          aria-describedby={invalidDraft ? errorId : undefined}
           onChange={(event) => {
             setDraft(event.currentTarget.value);
             const quantity = event.currentTarget.valueAsNumber;
