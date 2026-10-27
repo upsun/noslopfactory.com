@@ -15,6 +15,10 @@ assert(
   !base.username && !base.password,
   'Use a URL without embedded credentials.',
 );
+assert(
+  base.pathname === '/' && !base.search && !base.hash,
+  'Pass the deployment origin without a path, query, or fragment.',
+);
 
 async function htmlPaths(
   directory = new URL('../dist/', import.meta.url),

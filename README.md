@@ -36,7 +36,7 @@ HTML and stable public URLs, including product photos and favicons, use `no-cach
 
 This policy is defined in `.upsun/config.yaml` using [Upsun static response headers](https://developer.upsun.com/docs/configure-apps/web/custom-headers). Keep stable filenames outside `/_astro/`; placing an unversioned public file there would give it immutable caching.
 
-After `pnpm build`, run `pnpm check:cache` with the deployed base URL as its argument. It checks the built HTML routes, a product photo, the favicon, and representative generated JavaScript, CSS and font responses against the real server. A local Astro preview does not apply Upsun's response-header configuration.
+After `pnpm build`, run `pnpm check:cache` with the deployment origin (scheme and hostname, without a path, query, or fragment) as its argument. It checks the built HTML routes, a product photo, the favicon, and representative generated JavaScript, CSS and font responses against the real server. A local Astro preview does not apply Upsun's response-header configuration.
 
 Responses already cached under the previous 24-hour policy cannot be revoked remotely. Existing visitors may need one hard refresh or must wait for that old cache entry to expire; later responses use revalidation.
 
