@@ -43,4 +43,4 @@ Simulated checkout presents an order summary and one explicit demo-order action.
 3. Implement resilient persistence and checkout/confirmation, then integrate generated product photos.
 4. Test variant identity, quantity arithmetic, malformed/stale storage, storage failure, confirmation snapshots and cart clearing. Validate types/content and the static build. Exercise direct entry paths and the complete purchase flow at desktop and mobile widths, including keyboard/dialog behavior. Run React Doctor and independent architecture/correctness/specification review.
 
-This is an additive MINOR feature. No release or deployment is authorized. The governing issue stays open until G/ explicitly requests completion.
+This is an additive MINOR feature. The governing issue stays open until G/ explicitly requests completion.

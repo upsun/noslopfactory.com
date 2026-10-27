@@ -30,6 +30,16 @@ The collection schema in `src/content.config.ts` validates content during checks
 
 Product images contain the printed words. Changing the slogan in content changes site text, but does not rewrite the words in the photograph. Regenerate the affected photo when changing the artwork. See [image generation notes](docs/product-images.md).
 
+## Deployment caching
+
+HTML and stable public URLs, including product photos and favicons, use `no-cache, max-age=0, must-revalidate`. Browsers may retain a response, but must check it with the server before reuse. Only Astro's generated, fingerprinted files under `/_astro/` use four-week public immutable caching, because a changed file gets a new URL.
+
+This policy is defined in `.upsun/config.yaml` using [Upsun static response headers](https://developer.upsun.com/docs/configure-apps/web/custom-headers). Keep stable filenames outside `/_astro/`; placing an unversioned public file there would give it immutable caching.
+
+After `pnpm build`, run `pnpm check:cache` with the deployed base URL as its argument. It checks the built HTML routes, a product photo, the favicon, and representative generated JavaScript, CSS and font responses against the real server. A local Astro preview does not apply Upsun's response-header configuration.
+
+Responses already cached under the previous 24-hour policy cannot be revoked remotely. Existing visitors may need one hard refresh or must wait for that old cache entry to expire; later responses use revalidation.
+
 ## Cart and simulation
 
 Cart selections are stored at `noslopfactory.cart.v1` in localStorage. Each product, color and size combination is a separate line, with quantities from 1 to 99. Current prices always come from content. Invalid or discontinued variants are discarded when restoring a saved cart. Storage events reconcile other tabs; simultaneous changes use the latest received state.
@@ -46,4 +56,4 @@ The visual system reuses number6.ai's approved fonts, neutral palette, grid, spa
 - [Architecture decision](docs/adr/0001-astro-site-react-shop.md)
 - [Governing issue](https://github.com/upsun/noslopfactory.com/issues/1)
 
-SemVer impact: additive MINOR feature. No release or production deployment is part of this change.
+SemVer impact: additive MINOR feature.

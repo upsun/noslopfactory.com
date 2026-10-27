@@ -9,9 +9,10 @@
     "dev": "astro dev",
     "build": "astro build",
     "check": "astro check",
+    "check:cache": "node scripts/check-cache.mjs",
     "test": "vitest run",
-    "format": "prettier --write src docs astro.config.mjs package.json tsconfig.json .prettierrc.json README.md",
-    "format:check": "prettier --check src docs astro.config.mjs package.json tsconfig.json .prettierrc.json README.md",
+    "format": "prettier --write src scripts docs astro.config.mjs package.json tsconfig.json .prettierrc.json README.md",
+    "format:check": "prettier --check src scripts docs astro.config.mjs package.json tsconfig.json .prettierrc.json README.md",
     "preview": "astro preview",
     "astro": "astro"
   },

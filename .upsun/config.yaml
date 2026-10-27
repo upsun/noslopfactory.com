@@ -26,10 +26,12 @@ applications:
           root: dist
           index: [index.html]
           scripts: false
-          expires: 24h
+          headers:
+            Cache-Control: "no-cache, max-age=0, must-revalidate"
           rules:
-            '\.(css|js|gif|jpe?g|png|svg|webp)$':
-              expires: 4w
+            '^/_astro/.*$':
+              headers:
+                Cache-Control: "public, max-age=2419200, immutable"
 
 routes:
   https://{default}/:
