@@ -853,6 +853,26 @@ em {
   margin-top: 12px;
   font-size: 10px;
 }
+.free-shipping {
+  margin-bottom: 20px;
+}
+.free-shipping__track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--n6-line-light);
+}
+.free-shipping__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--n6-spectral-violet);
+  transition: width 0.3s ease;
+}
+.free-shipping__message {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
 .order-summary__total {
   border-top: 1px solid var(--n6-line-light);
   margin-top: 24px;

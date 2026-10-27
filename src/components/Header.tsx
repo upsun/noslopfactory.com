@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import type { Product } from '../lib/catalog';
 import { cartTotals } from '../lib/cart';
 import { OrderTotals } from './shop/OrderTotals';
+import { FreeShippingProgress } from './shop/FreeShippingProgress';
 import { CartItems } from './shop/CartItems';
 import { Arrow, Bag } from './shop/Icons';
 import { useCart, useCartConnection } from './shop/useCart';
@@ -18,6 +19,7 @@ export default function Header({
   const state = useCart();
   const dialog = useRef<HTMLDialogElement>(null);
   const count = state.lines.reduce((sum, line) => sum + line.quantity, 0);
+  const totals = cartTotals(state.lines, products);
   return (
     <>
       <header className="site-header">
@@ -79,7 +81,11 @@ export default function Header({
               onNavigate={() => dialog.current?.close()}
             />
             <div className="mini-cart__bottom">
-              <OrderTotals totals={cartTotals(state.lines, products)} />
+              <FreeShippingProgress
+                subtotalCents={totals.subtotalCents}
+                itemCount={state.lines.length}
+              />
+              <OrderTotals totals={totals} />
               <p className="meta">Demo products. No real charges.</p>
               <ShopLink
                 className="button button--dark button--wide"
