@@ -96,7 +96,9 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   expect(screen.getByText(/Use a whole number from 1 to 99/)).toBeTruthy();
   expect(quantity.getAttribute('aria-invalid')).toBe('true');
   await user.tab();
-  expect(Number(quantity.value)).toBeLessThanOrEqual(99);
+  expect(quantity.value).toBe('15');
+  expect(quantity.getAttribute('aria-invalid')).toBe('false');
+  expect(screen.getByText(/Quantity restored to 15/)).toBeTruthy();
   expect(screen.getByText(/Use a whole number from 1 to 99/)).toBeTruthy();
   await user.clear(quantity);
   await user.type(quantity, '1');

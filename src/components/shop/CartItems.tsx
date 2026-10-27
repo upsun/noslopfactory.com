@@ -63,7 +63,9 @@ function QuantityControl({ line, label }: { line: CartLine; label: string }) {
       </div>
       {hasError && (
         <p className="quantity-error" id={errorId} role="status">
-          Use a whole number from 1 to 99. Last valid quantity: {line.quantity}.
+          {draft === null && <>Quantity restored to {line.quantity}. </>}
+          Use a whole number from 1 to 99.
+          {draft !== null && <> Last valid quantity: {line.quantity}.</>}
         </p>
       )}
     </>
