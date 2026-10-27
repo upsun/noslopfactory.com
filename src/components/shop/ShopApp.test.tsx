@@ -62,12 +62,20 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   await user.click(screen.getByRole('radio', { name: 'M' }));
   await user.click(screen.getByRole('button', { name: 'Add to cart $32' }));
   await user.click(screen.getByRole('button', { name: 'Open cart, 1 item' }));
+  const miniCart = within(screen.getByRole('dialog'));
+  expect(miniCart.getByText('Shipping')).toBeTruthy();
+  expect(miniCart.getByText('$9')).toBeTruthy();
+  expect(miniCart.getByText('$41')).toBeTruthy();
   await user.click(
     within(screen.getByRole('dialog')).getByRole('link', {
       name: 'View cart',
     }),
   );
   await screen.findByRole('heading', { name: 'Your cart.' });
+  const summary = within(screen.getByRole('complementary'));
+  expect(summary.getByText('$32')).toBeTruthy();
+  expect(summary.getByText('$9')).toBeTruthy();
+  expect(summary.getByText('$41')).toBeTruthy();
   await waitFor(() => expect(document.activeElement?.id).toBe('main'), {
     onTimeout: (error) => error,
   });
@@ -88,6 +96,9 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   await user.type(quantity, '2');
   await user.tab();
   expect(quantity.value).toBe('2');
+  expect(summary.getByText('$64')).toBeTruthy();
+  expect(summary.getByText('$9')).toBeTruthy();
+  expect(summary.getByText('$73')).toBeTruthy();
   await user.clear(quantity);
   await user.tab();
   expect(quantity.value).toBe('2');
@@ -121,6 +132,10 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   await screen.findByRole('heading', { name: 'Your cart.' });
   await user.click(screen.getByRole('link', { name: 'Simulated checkout' }));
   await screen.findByRole('heading', { name: 'Almost real.' });
+  const checkout = within(screen.getByRole('complementary'));
+  expect(checkout.getByText('Shipping')).toBeTruthy();
+  expect(checkout.getByText('$9')).toBeTruthy();
+  expect(checkout.getByText('$41')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Place demo order' }));
   await screen.findByRole('heading', {
     name: 'You’re absolutely not being charged.',
@@ -129,5 +144,12 @@ it('retains a memory-only cart through header navigation and simulated checkout 
     screen.getByRole('button', { name: 'Open cart, 0 items' }),
   ).toBeTruthy();
   expect(screen.getByText('Actually charged')).toBeTruthy();
+  const receipt = within(
+    screen.getByRole('region', { name: 'Demo order receipt' }),
+  );
+  expect(receipt.getByText('Shipping')).toBeTruthy();
+  expect(receipt.getByText('$9')).toBeTruthy();
+  expect(receipt.getByText('$41')).toBeTruthy();
+  expect(receipt.getByText('$0')).toBeTruthy();
   expect(window.localStorage.length).toBe(0);
 });

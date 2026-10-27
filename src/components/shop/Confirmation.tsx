@@ -4,6 +4,7 @@ import { colorLabel, money } from '../../lib/catalog';
 import { useCart } from './useCart';
 import { Arrow } from './Icons';
 import { EmptyState } from './EmptyState';
+import { OrderTotals } from './OrderTotals';
 
 export default function Confirmation() {
   const { ready, order } = useCart();
@@ -63,12 +64,14 @@ export default function Confirmation() {
             </li>
           ))}
         </ul>
-        <div className="total-row order-summary__total">
-          <span>
-            Demo total <span className="meta">USD</span>
-          </span>
-          <strong>{money(order.totalCents)}</strong>
-        </div>
+        <OrderTotals
+          totals={{
+            subtotalCents: order.totalCents - order.shippingCents,
+            shippingCents: order.shippingCents,
+            totalCents: order.totalCents,
+          }}
+          totalLabel="Demo total (USD)"
+        />
         <div className="total-row">
           <span>Actually charged</span>
           <strong>$0</strong>

@@ -4,6 +4,7 @@ import { validVariant, type Color, type Product } from './catalog';
 export const CART_KEY = 'noslopfactory.cart.v1';
 export const ORDER_KEY = 'noslopfactory.order.v1';
 export const MAX_QUANTITY = 99;
+const SHIPPING_CENTS = 900;
 export interface CartLine {
   productId: string;
   color: Color;
@@ -19,6 +20,7 @@ export interface DemoOrder {
   reference: string;
   createdAt: string;
   lines: OrderLine[];
+  shippingCents: number;
   totalCents: number;
 }
 export interface CartState {
@@ -147,15 +149,20 @@ function restoreOrder(raw: string | null): DemoOrder | null {
         priceCents: line.priceCents,
       });
     }
+    // Receipts saved before shipping was introduced keep their original total.
+    const shippingCents =
+      value.shippingCents === undefined ? 0 : value.shippingCents;
+    if (shippingCents !== 0 && shippingCents !== SHIPPING_CENTS) return null;
     const totalCents = lines.reduce(
       (sum, line) => sum + line.priceCents * line.quantity,
-      0,
+      shippingCents,
     );
     if (value.totalCents !== totalCents) return null;
     return {
       reference: value.reference,
       createdAt: value.createdAt,
       lines,
+      shippingCents,
       totalCents,
     };
   } catch {
@@ -163,14 +170,20 @@ function restoreOrder(raw: string | null): DemoOrder | null {
   }
 }
 
-export function cartTotal(lines: CartLine[], products: Product[]) {
+export function cartTotals(lines: CartLine[], products: Product[]) {
   const prices = new Map(
     products.map((product) => [product.id, product.priceCents]),
   );
-  return lines.reduce(
+  const subtotalCents = lines.reduce(
     (sum, line) => sum + (prices.get(line.productId) ?? 0) * line.quantity,
     0,
   );
+  const shippingCents = lines.length ? SHIPPING_CENTS : 0;
+  return {
+    subtotalCents,
+    shippingCents,
+    totalCents: subtotalCents + shippingCents,
+  };
 }
 
 export function createCart(initialProducts: Product[] = []) {
@@ -306,10 +319,8 @@ export function createCart(initialProducts: Product[] = []) {
         reference: makeReference(),
         createdAt: new Date().toISOString(),
         lines,
-        totalCents: lines.reduce(
-          (sum, line) => sum + line.priceCents * line.quantity,
-          0,
-        ),
+        shippingCents: SHIPPING_CENTS,
+        totalCents: cartTotals(selections, products).totalCents,
       };
       store.setState((state) => ({ ...state, order, lines: [] }));
       write(session, ORDER_KEY, order);

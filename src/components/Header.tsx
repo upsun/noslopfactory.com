@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import type { Product } from '../lib/catalog';
-import { cartTotal } from '../lib/cart';
-import { money } from '../lib/catalog';
+import { cartTotals } from '../lib/cart';
+import { OrderTotals } from './shop/OrderTotals';
 import { CartItems } from './shop/CartItems';
 import { Arrow, Bag } from './shop/Icons';
 import { useCart, useCartConnection } from './shop/useCart';
@@ -79,10 +79,7 @@ export default function Header({
               onNavigate={() => dialog.current?.close()}
             />
             <div className="mini-cart__bottom">
-              <div className="total-row">
-                <span>Subtotal</span>
-                <strong>{money(cartTotal(state.lines, products))}</strong>
-              </div>
+              <OrderTotals totals={cartTotals(state.lines, products)} />
               <p className="meta">Demo products. No real charges.</p>
               <ShopLink
                 className="button button--dark button--wide"

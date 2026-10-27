@@ -1,5 +1,6 @@
 import { Link, useNavigate } from '@tanstack/react-router';
-import { cart, cartTotal, lineKey } from '../../lib/cart';
+import { cart, cartTotals, lineKey } from '../../lib/cart';
+import { OrderTotals } from './OrderTotals';
 import { colorLabel, money, productImage } from '../../lib/catalog';
 import { useCatalog } from './CatalogContext';
 import { useCart } from './useCart';
@@ -93,11 +94,8 @@ export default function Checkout() {
               );
             })}
           </ul>
-          <div className="total-row order-summary__total">
-            <strong>Total</strong>
-            <strong>{money(cartTotal(state.lines, products))}</strong>
-          </div>
-          <p className="meta">USD. No shipping or tax charges.</p>
+          <OrderTotals totals={cartTotals(state.lines, products)} />
+          <p className="meta">USD. No tax charges.</p>
           <button
             className="button button--dark button--wide"
             type="button"

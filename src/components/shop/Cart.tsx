@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
-import { cartTotal } from '../../lib/cart';
-import { money } from '../../lib/catalog';
+import { cartTotals } from '../../lib/cart';
+import { OrderTotals } from './OrderTotals';
 import { useCatalog } from './CatalogContext';
 import { useCart } from './useCart';
 import { CartItems } from './CartItems';
@@ -55,15 +55,8 @@ export default function Cart() {
         <CartItems lines={state.lines} products={products} />
         <aside className="order-summary">
           <h2>The short version.</h2>
-          <div className="total-row">
-            <span>Subtotal</span>
-            <span>{money(cartTotal(state.lines, products))}</span>
-          </div>
-          <p className="meta">USD. No shipping or tax charges.</p>
-          <div className="total-row order-summary__total">
-            <strong>Total</strong>
-            <strong>{money(cartTotal(state.lines, products))}</strong>
-          </div>
+          <OrderTotals totals={cartTotals(state.lines, products)} />
+          <p className="meta">USD. No tax charges.</p>
           <Link className="button button--dark button--wide" to="/checkout">
             Simulated checkout <Arrow />
           </Link>
