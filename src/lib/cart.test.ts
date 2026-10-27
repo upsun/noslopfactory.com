@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   CART_KEY,
   ORDER_KEY,
@@ -134,6 +134,24 @@ describe('variant-aware cart', () => {
 });
 
 describe('browser persistence', () => {
+  it('clears a transient storage warning after the failed storage port recovers', () => {
+    const saved = memoryStorage();
+    let rejectWrites = true;
+    const local: StoragePort = {
+      getItem: saved.getItem,
+      setItem: (key, value) => {
+        if (rejectWrites) throw new Error('Temporary quota failure');
+        saved.setItem(key, value);
+      },
+    };
+    const { cart } = setup(local);
+    cart.add('tee', 'black', 'M');
+    expect(cart.store.get().storageBlocked).toBe(true);
+    rejectWrites = false;
+    cart.quantity(lineKey(line), 2);
+    expect(cart.store.get().storageBlocked).toBe(false);
+    expect(setup(local).cart.store.get().lines[0]?.quantity).toBe(2);
+  });
   it('restores selections but derives prices from the current catalog', () => {
     const local = memoryStorage({
       [CART_KEY]: saved([{ ...line, priceCents: 1, quantity: 2 }]),
@@ -205,6 +223,17 @@ describe('browser persistence', () => {
 });
 
 describe('simulated checkout', () => {
+  it('creates demo references even when secure-context crypto APIs are unavailable', () => {
+    vi.stubGlobal('crypto', undefined);
+    try {
+      const { cart } = setup();
+      cart.add('tee', 'black', 'M');
+      expect(cart.placeOrder()?.reference).toMatch(/^DEMO-[A-Z0-9-]+$/);
+      expect(cart.store.get().lines).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it('creates a stable receipt, clears persistent cart, and prevents duplicate submission', () => {
     const { cart, local, session } = setup();
     cart.add('tee', 'black', 'M', 2);

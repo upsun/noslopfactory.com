@@ -3,24 +3,22 @@ import { useSelector } from '@tanstack/react-store';
 import { cart, CART_KEY } from '../../lib/cart';
 import type { Product } from '../../lib/catalog';
 
+function browserStorage(name: 'localStorage' | 'sessionStorage') {
+  try {
+    return window[name];
+  } catch {
+    return undefined;
+  }
+}
+
 export function useCart() {
   return useSelector(cart.store);
 }
 
 export function useCartConnection(products: Product[]) {
   useEffect(() => {
-    let local: Storage | undefined;
-    let session: Storage | undefined;
-    try {
-      local = window.localStorage;
-    } catch {
-      cart.storageUnavailable();
-    }
-    try {
-      session = window.sessionStorage;
-    } catch {
-      cart.storageUnavailable();
-    }
+    const local = browserStorage('localStorage');
+    const session = browserStorage('sessionStorage');
     cart.initialize(products, local, session);
     const sync = (event: StorageEvent) => {
       if (

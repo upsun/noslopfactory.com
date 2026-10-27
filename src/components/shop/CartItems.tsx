@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { cart, lineKey, MAX_QUANTITY, type CartLine } from '../../lib/cart';
 import {
   colorLabel,
@@ -6,6 +7,55 @@ import {
   type Product,
 } from '../../lib/catalog';
 import { ShopLink } from './ShopLink';
+
+function QuantityControl({ line, label }: { line: CartLine; label: string }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const key = lineKey(line);
+  return (
+    <div className="quantity-control">
+      <button
+        type="button"
+        disabled={line.quantity <= 1}
+        aria-label={`Decrease ${label.toLowerCase()}`}
+        onClick={() => {
+          setDraft(null);
+          cart.quantity(key, line.quantity - 1);
+        }}
+      >
+        −
+      </button>
+      <input
+        aria-label={label}
+        type="number"
+        min="1"
+        max={MAX_QUANTITY}
+        value={draft ?? line.quantity}
+        onChange={(event) => {
+          setDraft(event.currentTarget.value);
+          const quantity = event.currentTarget.valueAsNumber;
+          if (
+            Number.isInteger(quantity) &&
+            quantity >= 1 &&
+            quantity <= MAX_QUANTITY
+          )
+            cart.quantity(key, quantity);
+        }}
+        onBlur={() => setDraft(null)}
+      />
+      <button
+        type="button"
+        disabled={line.quantity >= MAX_QUANTITY}
+        aria-label={`Increase ${label.toLowerCase()}`}
+        onClick={() => {
+          setDraft(null);
+          cart.quantity(key, line.quantity + 1);
+        }}
+      >
+        +
+      </button>
+    </div>
+  );
+}
 
 export function CartItems({
   lines,
@@ -52,40 +102,7 @@ export function CartItems({
                 {product.title}
               </ShopLink>
               <p className="meta">{variant}</p>
-              <div className="quantity-control">
-                <button
-                  type="button"
-                  disabled={line.quantity <= 1}
-                  aria-label={`Decrease ${quantityLabel.toLowerCase()}`}
-                  onClick={() => cart.quantity(key, line.quantity - 1)}
-                >
-                  −
-                </button>
-                <input
-                  aria-label={quantityLabel}
-                  type="number"
-                  min="1"
-                  max={MAX_QUANTITY}
-                  value={line.quantity}
-                  onChange={(event) => {
-                    const value = event.currentTarget.valueAsNumber;
-                    if (
-                      Number.isInteger(value) &&
-                      value >= 1 &&
-                      value <= MAX_QUANTITY
-                    )
-                      cart.quantity(key, value);
-                  }}
-                />
-                <button
-                  type="button"
-                  disabled={line.quantity >= MAX_QUANTITY}
-                  aria-label={`Increase ${quantityLabel.toLowerCase()}`}
-                  onClick={() => cart.quantity(key, line.quantity + 1)}
-                >
-                  +
-                </button>
-              </div>
+              <QuantityControl line={line} label={quantityLabel} />
             </div>
             <div className="cart-item__end">
               <span>{money(product.priceCents * line.quantity)}</span>

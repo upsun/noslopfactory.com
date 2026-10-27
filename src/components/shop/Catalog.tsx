@@ -16,10 +16,12 @@ function ProductCard({
   product,
   index,
   total,
+  position,
 }: {
   product: Product;
   index: number;
   total: number;
+  position: number;
 }) {
   const [previewColor, setColor] = useState<Color | null>(null);
   const color =
@@ -45,8 +47,7 @@ function ProductCard({
           fetchPriority={index === 0 ? 'high' : 'auto'}
         />
         <span className="product-card__number mono">
-          {String(product.order + 1).padStart(2, '0')} /{' '}
-          {String(total).padStart(2, '0')}
+          {String(position).padStart(2, '0')} / {String(total).padStart(2, '0')}
         </span>
         <span className="product-card__view">
           <Arrow diagonal />
@@ -111,6 +112,9 @@ function ProductCard({
 export default function Catalog() {
   const products = useCatalog();
   const [category, setCategory] = useState<Category | 'all'>('all');
+  const positions = new Map(
+    products.map((product, index) => [product.id, index + 1]),
+  );
   const shown =
     category === 'all'
       ? products
@@ -200,6 +204,7 @@ export default function Catalog() {
               product={product}
               index={index}
               total={products.length}
+              position={positions.get(product.id) ?? index + 1}
             />
           ))}
         </div>

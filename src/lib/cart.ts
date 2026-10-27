@@ -28,6 +28,13 @@ export interface CartState {
   storageBlocked: boolean;
 }
 export type StoragePort = Pick<Storage, 'getItem' | 'setItem'>;
+function demoReference() {
+  const bytes = globalThis.crypto?.getRandomValues?.(new Uint8Array(4));
+  const suffix = bytes
+    ? Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return `DEMO-${suffix.toUpperCase()}`;
+}
 export const lineKey = (line: Pick<CartLine, 'productId' | 'color' | 'size'>) =>
   JSON.stringify([line.productId, line.color, line.size]);
 
@@ -171,6 +178,7 @@ export function createCart(initialProducts: Product[] = []) {
   let productsById = new Map(products.map((product) => [product.id, product]));
   let storage: StoragePort | undefined;
   let session: StoragePort | undefined;
+  const failedStorage = new Set<string>();
   const store = createStore<CartState>({
     lines: [],
     order: null,
@@ -178,22 +186,29 @@ export function createCart(initialProducts: Product[] = []) {
     storageBlocked: false,
   });
 
-  function blocked() {
-    store.setState((state) => ({ ...state, storageBlocked: true }));
+  function storageStatus(key: string, failed: boolean) {
+    if (failed) failedStorage.add(key);
+    else failedStorage.delete(key);
+    const storageBlocked = failedStorage.size > 0;
+    if (storageBlocked !== store.get().storageBlocked)
+      store.setState((state) => ({ ...state, storageBlocked }));
   }
   function read(port: StoragePort | undefined, key: string) {
     try {
-      return port?.getItem(key) ?? null;
+      const value = port?.getItem(key) ?? null;
+      storageStatus(key, !port);
+      return value;
     } catch {
-      blocked();
+      storageStatus(key, true);
       return null;
     }
   }
   function write(port: StoragePort | undefined, key: string, value: unknown) {
     try {
       port?.setItem(key, JSON.stringify(value));
+      storageStatus(key, !port);
     } catch {
-      blocked();
+      storageStatus(key, true);
     }
   }
   function replace(lines: CartLine[], persist = true) {
@@ -213,7 +228,6 @@ export function createCart(initialProducts: Product[] = []) {
       const order = restoreOrder(read(session, ORDER_KEY));
       store.setState((state) => ({ ...state, lines, order, ready: true }));
     },
-    storageUnavailable: blocked,
     sync(raw: string | null) {
       replace(restoreLines(raw, products), false);
     },
@@ -270,10 +284,7 @@ export function createCart(initialProducts: Product[] = []) {
     remove(key: string) {
       replace(store.get().lines.filter((line) => lineKey(line) !== key));
     },
-    placeOrder(
-      makeReference = () =>
-        `DEMO-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-    ): DemoOrder | null {
+    placeOrder(makeReference = demoReference): DemoOrder | null {
       const selections = store.get().lines;
       if (!selections.length) return null;
       const lines: OrderLine[] = [];

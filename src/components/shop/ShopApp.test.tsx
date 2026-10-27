@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import {
+  cleanup,
+  render,
+  screen,
+  within,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ShopApp from './ShopApp';
 import type { Product } from '../../lib/catalog';
@@ -58,6 +64,9 @@ it('retains a memory-only cart through header navigation and simulated checkout 
     }),
   );
   await screen.findByRole('heading', { name: 'Your cart.' });
+  await waitFor(() => expect(document.activeElement?.id).toBe('main'), {
+    onTimeout: (error) => error,
+  });
   expect(screen.getByText(/Your browser is blocking storage/)).toBeTruthy();
   expect(
     screen
@@ -67,6 +76,20 @@ it('retains a memory-only cart through header navigation and simulated checkout 
       .getAttribute('value'),
   ).toBe('1');
   expect(screen.queryByRole('dialog')).toBeNull();
+  const quantity = screen.getByRole('spinbutton', {
+    name: 'Quantity for The agreement tee, Black / M',
+  }) as HTMLInputElement;
+  await user.clear(quantity);
+  expect(quantity.value).toBe('');
+  await user.type(quantity, '2');
+  await user.tab();
+  expect(quantity.value).toBe('2');
+  await user.clear(quantity);
+  await user.tab();
+  expect(quantity.value).toBe('2');
+  await user.clear(quantity);
+  await user.type(quantity, '1');
+  await user.tab();
   await user.click(
     within(screen.getByRole('main')).getByRole('link', { name: product.title }),
   );

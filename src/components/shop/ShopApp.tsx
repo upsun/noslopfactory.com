@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   createRootRoute,
   createRoute,
@@ -6,6 +6,7 @@ import {
   Link,
   Outlet,
   RouterProvider,
+  useRouter,
   useRouterState,
 } from '@tanstack/react-router';
 import type { Color, Product as ProductData } from '../../lib/catalog';
@@ -19,11 +20,11 @@ import Checkout from './Checkout';
 import Confirmation from './Confirmation';
 
 function RouteEffects() {
+  const router = useRouter();
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
   const products = useCatalog();
-  const first = useRef(true);
   useEffect(() => {
     const id = pathname.split('/products/')[1]?.replace(/\/$/, '');
     const product = products.find((item) => item.id === id);
@@ -37,14 +38,17 @@ function RouteEffects() {
             ? 'Your cart'
             : 'The shop');
     document.title = `${title} · noslopfactory`;
-    if (first.current) {
-      first.current = false;
-      return;
-    }
-    const main = document.getElementById('main');
-    main?.setAttribute('tabindex', '-1');
-    main?.focus({ preventScroll: true });
   }, [pathname, products]);
+  useEffect(
+    () =>
+      router.subscribe('onRendered', ({ pathChanged }) => {
+        if (!pathChanged) return;
+        const main = document.getElementById('main');
+        main?.setAttribute('tabindex', '-1');
+        main?.focus({ preventScroll: true });
+      }),
+    [router],
+  );
   return null;
 }
 
