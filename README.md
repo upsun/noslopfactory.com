@@ -1,43 +1,49 @@
-# Astro Starter Kit: Minimal
+# noslopfactory
+
+An Astro website for future AI education, with a simulated merchandise shop at `/shop`. The homepage is intentionally a placeholder. The shop uses React, TanStack Router and TanStack Store. It takes no real orders and collects no payment or personal information.
+
+## Development
+
+Use Node 22.23.4 or later and pnpm.
 
 ```sh
-pnpm create astro@latest -- --template minimal
+pnpm install
+pnpm exec astro dev --background
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+The local site runs at http://localhost:4321. Manage the background process with `pnpm exec astro dev status`, `pnpm exec astro dev logs`, and `pnpm exec astro dev stop`.
 
-## 🚀 Project Structure
-
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+```sh
+pnpm test
+pnpm check
+pnpm build
+pnpm format:check
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+The build produces static files in `dist/`. Astro generates direct entry pages for the catalog, every product, cart, checkout, and confirmation. Shop navigation after loading is handled by TanStack Router. When adding a non-product shop route, update both `ShopApp.tsx` and the static path list in `src/pages/shop/[...path].astro`.
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+## Product content
 
-Any static assets, like images, can be placed in the `public/` directory.
+Each product is one Markdown file in `src/content/products/`. Edit its YAML frontmatter to change the title, slogan, description, detail list, price, order, colors, sizes, and product photos. Prices use integer USD cents: `3200` means $32. The Markdown filename is the product ID and URL segment; use a flat, lowercase, hyphenated filename.
 
-## 🧞 Commands
+The collection schema in `src/content.config.ts` validates content during checks and builds. Each offered color needs exactly one image entry. Shirt sizes are XS, S, M, L, XL, 2XL, and 3XL. Store artwork under `public/products/`, with descriptive image text in the product's `alt` fields. `backImage` is optional; the starter back-print reference is photographed in off-white.
 
-All commands are run from the root of the project, from a terminal:
+Product images contain the printed words. Changing the slogan in content changes site text, but does not rewrite the words in the photograph. Regenerate the affected photo when changing the artwork. See [image generation notes](docs/product-images.md).
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `pnpm install`             | Installs dependencies                            |
-| `pnpm dev`             | Starts local dev server at `localhost:4321`      |
-| `pnpm build`           | Build your production site to `./dist/`          |
-| `pnpm preview`         | Preview your build locally, before deploying     |
-| `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `pnpm astro -- --help` | Get help using the Astro CLI                     |
+## Cart and simulation
 
-## 👀 Want to learn more?
+Cart selections are stored at `noslopfactory.cart.v1` in localStorage. Each product, color and size combination is a separate line, with quantities from 1 to 99. Current prices always come from content. Invalid or discontinued variants are discarded when restoring a saved cart. Storage events reconcile other tabs; simultaneous changes use the latest received state.
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+Checkout creates a local demo receipt and clears the cart. Only the most recent receipt is retained in the current tab's sessionStorage, at `noslopfactory.order.v1`. A confirmation refresh shows the same receipt without submitting another order. The application remains usable in memory if browser storage is blocked, but persistence cannot be guaranteed.
+
+There is no backend, account system, analytics integration, payment provider, shipping calculation, or tax calculation.
+
+## Design and scope
+
+The visual system reuses number6.ai's approved fonts, neutral palette, grid, spacing, and control rules. Claude-referencing product photography uses an approximate editorial serif, not a bundled proprietary Claude font.
+
+- [Approved scope and verification plan](docs/specs/demo-shop.md)
+- [Architecture decision](docs/adr/0001-astro-site-react-shop.md)
+- [Governing issue](https://github.com/upsun/noslopfactory.com/issues/1)
+
+SemVer impact: additive MINOR feature. No release or production deployment is part of this change.

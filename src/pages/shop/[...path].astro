@@ -1,0 +1,56 @@
+---
+import { getCollection } from 'astro:content';
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ShopApp from '../../components/shop/ShopApp';
+
+export const getStaticPaths = (async () => {
+  const products = await getCollection('products');
+  return [
+    { params: { path: undefined }, props: { title: 'The shop' } },
+    ...['cart', 'checkout', 'confirmation'].map((path) => ({
+      params: { path },
+      props: {
+        title:
+          path === 'cart'
+            ? 'Your cart'
+            : path === 'checkout'
+              ? 'Simulated checkout'
+              : 'Demo confirmation',
+      },
+    })),
+    ...products.map((product) => ({
+      params: { path: `products/${product.id}` },
+      props: { title: product.data.title },
+    })),
+  ];
+}) satisfies GetStaticPaths;
+const products = (await getCollection('products'))
+  .map(({ id, data }) => ({ id, ...data }))
+  .sort((a, b) => a.order - b.order);
+const { title } = Astro.props;
+---
+
+<BaseLayout
+  title={title}
+  description="Shirts, caps, and stickers for the human in the loop. A demo shop with real skepticism and imaginary orders."
+>
+  <ShopApp products={products} client:only="react">
+    <div slot="fallback" class="shop-loading wrap">
+      <span class="eyebrow">NOSLOPFACTORY / THE SHOP</span>
+      <p>
+        Gathering our thoughts<span aria-hidden="true">…</span>
+      </p>
+    </div>
+  </ShopApp>
+  <noscript>
+    <main class="wrap empty-page" id="main">
+      <h1>The shop needs JavaScript.</h1>
+      <p>
+        Enable JavaScript to browse products, manage your cart, and try the
+        simulated checkout.
+      </p>
+      <a href="/">Back to the project</a>
+    </main>
+  </noscript>
+</BaseLayout>

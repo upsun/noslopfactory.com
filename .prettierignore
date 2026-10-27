@@ -1,0 +1,6 @@
+node_modules
+dist
+.astro
+.roam
+pnpm-lock.yaml
+public
