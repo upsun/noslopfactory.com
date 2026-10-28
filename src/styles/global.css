@@ -849,6 +849,27 @@ em {
 .total-row strong {
   font-weight: 500;
 }
+.shipping-progress {
+  margin-bottom: 20px;
+}
+.shipping-progress__message {
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.shipping-progress__track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--n6-line-light);
+  overflow: hidden;
+}
+.shipping-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--n6-spectral-cyan);
+  /* Ink outline keeps the filled part distinguishable from the track (WCAG 1.4.11). */
+  box-shadow: inset 0 0 0 1px var(--n6-ink);
+  transition: width 0.3s ease;
+}
 .order-summary > .meta {
   margin-top: 12px;
   font-size: 10px;

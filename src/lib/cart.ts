@@ -4,7 +4,8 @@ import { validVariant, type Color, type Product } from './catalog';
 export const CART_KEY = 'noslopfactory.cart.v1';
 export const ORDER_KEY = 'noslopfactory.order.v1';
 export const MAX_QUANTITY = 99;
-const SHIPPING_CENTS = 900;
+export const SHIPPING_CENTS = 900;
+export const FREE_SHIPPING_THRESHOLD_CENTS = 4000;
 export interface CartLine {
   productId: string;
   color: Color;
@@ -150,13 +151,22 @@ function restoreOrder(raw: string | null): DemoOrder | null {
       });
     }
     // Receipts saved before shipping was introduced keep their original total.
+    // Receipts saved under the earlier flat fee keep their $9 shipping even when
+    // the subtotal would qualify for free shipping today. The app never writes
+    // an explicit $0 shipping below the free-shipping threshold.
     const shippingCents =
       value.shippingCents === undefined ? 0 : value.shippingCents;
     if (shippingCents !== 0 && shippingCents !== SHIPPING_CENTS) return null;
-    const totalCents = lines.reduce(
+    const subtotalCents = lines.reduce(
       (sum, line) => sum + line.priceCents * line.quantity,
-      shippingCents,
+      0,
     );
+    if (
+      value.shippingCents === 0 &&
+      subtotalCents < FREE_SHIPPING_THRESHOLD_CENTS
+    )
+      return null;
+    const totalCents = subtotalCents + shippingCents;
     if (value.totalCents !== totalCents) return null;
     return {
       reference: value.reference,
@@ -170,6 +180,27 @@ function restoreOrder(raw: string | null): DemoOrder | null {
   }
 }
 
+// Free shipping applies to the product subtotal only, never to the total.
+export function shippingFor(subtotalCents: number, hasLines: boolean) {
+  if (!hasLines || subtotalCents >= FREE_SHIPPING_THRESHOLD_CENTS) return 0;
+  return SHIPPING_CENTS;
+}
+
+export function freeShippingProgress(subtotalCents: number) {
+  const remainingCents = Math.max(
+    0,
+    FREE_SHIPPING_THRESHOLD_CENTS - subtotalCents,
+  );
+  const percent = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.floor((subtotalCents * 100) / FREE_SHIPPING_THRESHOLD_CENTS),
+    ),
+  );
+  return { unlocked: remainingCents === 0, remainingCents, percent };
+}
+
 export function cartTotals(lines: CartLine[], products: Product[]) {
   const prices = new Map(
     products.map((product) => [product.id, product.priceCents]),
@@ -178,7 +209,7 @@ export function cartTotals(lines: CartLine[], products: Product[]) {
     (sum, line) => sum + (prices.get(line.productId) ?? 0) * line.quantity,
     0,
   );
-  const shippingCents = lines.length ? SHIPPING_CENTS : 0;
+  const shippingCents = shippingFor(subtotalCents, lines.length > 0);
   return {
     subtotalCents,
     shippingCents,
@@ -315,12 +346,13 @@ export function createCart(initialProducts: Product[] = []) {
           image: image.src,
         });
       }
+      const totals = cartTotals(selections, products);
       const order: DemoOrder = {
         reference: makeReference(),
         createdAt: new Date().toISOString(),
         lines,
-        shippingCents: SHIPPING_CENTS,
-        totalCents: cartTotals(selections, products).totalCents,
+        shippingCents: totals.shippingCents,
+        totalCents: totals.totalCents,
       };
       store.setState((state) => ({ ...state, order, lines: [] }));
       write(session, ORDER_KEY, order);
