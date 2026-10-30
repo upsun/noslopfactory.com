@@ -46,7 +46,7 @@ Cart selections are stored at `noslopfactory.cart.v1` in localStorage. Each prod
 
 Checkout creates a local demo receipt and clears the cart. Only the most recent receipt is retained in the current tab's sessionStorage, at `noslopfactory.order.v1`. A confirmation refresh shows the same receipt without submitting another order. The application remains usable in memory if browser storage is blocked, but persistence cannot be guaranteed.
 
-A non-empty cart adds a flat $9 USD shipping fee once, regardless of quantities or variants. Empty carts have no shipping fee. The mini cart, cart, checkout and confirmation show the product subtotal, shipping and total. Receipts retain the shipping amount at order time; receipts from before this fee keep their original total.
+A non-empty cart adds a flat $9 USD shipping fee once, regardless of quantities or variants, while its product subtotal (excluding shipping) is below $40. From a $40 subtotal, shipping is free. Empty carts have no shipping fee. The mini cart and cart show a free-shipping progress bar ("Add $x to get free shipping" or "Free shipping unlocked") whenever the cart has items. The mini cart, cart, checkout and confirmation show the product subtotal, shipping and total. Receipts retain the shipping amount at order time; receipts from before the fee, and flat-fee receipts from before free shipping, keep their original total.
 
 There is no backend, account system, analytics integration, payment provider, or tax calculation. Shipping is simulated; nothing is charged or shipped.
 
