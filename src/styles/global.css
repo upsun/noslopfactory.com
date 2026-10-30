@@ -849,6 +849,28 @@ em {
 .total-row strong {
   font-weight: 500;
 }
+.shipping-progress {
+  margin-bottom: 24px;
+}
+.shipping-progress__message {
+  color: var(--n6-ink);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.shipping-progress__track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--n6-line-light);
+  overflow: hidden;
+}
+.shipping-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--n6-spectral-cyan);
+  /* Ink leading edge: cyan alone is ~1:1 against the track, so mark where the fill ends. */
+  box-shadow: inset -2px 0 0 var(--n6-ink);
+  transition: width 0.3s ease;
+}
 .order-summary > .meta {
   margin-top: 12px;
   font-size: 10px;
