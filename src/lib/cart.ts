@@ -5,6 +5,7 @@ export const CART_KEY = 'noslopfactory.cart.v1';
 export const ORDER_KEY = 'noslopfactory.order.v1';
 export const MAX_QUANTITY = 99;
 const SHIPPING_CENTS = 900;
+export const FREE_SHIPPING_THRESHOLD_CENTS = 4000;
 export interface CartLine {
   productId: string;
   color: Color;
@@ -149,7 +150,9 @@ function restoreOrder(raw: string | null): DemoOrder | null {
         priceCents: line.priceCents,
       });
     }
-    // Receipts saved before shipping was introduced keep their original total.
+    // Receipts keep the shipping they were placed with: none before shipping
+    // was introduced, the flat fee at any subtotal before free shipping, and
+    // either the flat fee or none (at or above the threshold) since then.
     const shippingCents =
       value.shippingCents === undefined ? 0 : value.shippingCents;
     if (shippingCents !== 0 && shippingCents !== SHIPPING_CENTS) return null;
@@ -178,11 +181,28 @@ export function cartTotals(lines: CartLine[], products: Product[]) {
     (sum, line) => sum + (prices.get(line.productId) ?? 0) * line.quantity,
     0,
   );
-  const shippingCents = lines.length ? SHIPPING_CENTS : 0;
+  const shippingCents =
+    !lines.length || subtotalCents >= FREE_SHIPPING_THRESHOLD_CENTS
+      ? 0
+      : SHIPPING_CENTS;
   return {
     subtotalCents,
     shippingCents,
     totalCents: subtotalCents + shippingCents,
+  };
+}
+
+export function freeShippingProgress(subtotalCents: number) {
+  const unlocked = subtotalCents >= FREE_SHIPPING_THRESHOLD_CENTS;
+  return {
+    unlocked,
+    remainingCents: Math.max(0, FREE_SHIPPING_THRESHOLD_CENTS - subtotalCents),
+    percent: unlocked
+      ? 100
+      : Math.min(
+          100,
+          (Math.max(0, subtotalCents) / FREE_SHIPPING_THRESHOLD_CENTS) * 100,
+        ),
   };
 }
 
@@ -315,12 +335,13 @@ export function createCart(initialProducts: Product[] = []) {
           image: image.src,
         });
       }
+      const totals = cartTotals(selections, products);
       const order: DemoOrder = {
         reference: makeReference(),
         createdAt: new Date().toISOString(),
         lines,
-        shippingCents: SHIPPING_CENTS,
-        totalCents: cartTotals(selections, products).totalCents,
+        shippingCents: totals.shippingCents,
+        totalCents: totals.totalCents,
       };
       store.setState((state) => ({ ...state, order, lines: [] }));
       write(session, ORDER_KEY, order);

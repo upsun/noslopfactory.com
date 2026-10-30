@@ -59,6 +59,11 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   expect(document.activeElement).toBe(
     screen.getByRole('link', { name: 'noslopfactory home' }),
   );
+  await user.click(screen.getByRole('button', { name: 'Open cart, 0 items' }));
+  const emptyMiniCart = within(screen.getByRole('dialog'));
+  expect(emptyMiniCart.getByText('Your cart is empty.')).toBeTruthy();
+  expect(emptyMiniCart.queryByRole('progressbar')).toBeNull();
+  await user.click(emptyMiniCart.getByRole('button', { name: 'Close cart' }));
   await user.click(screen.getByRole('radio', { name: 'M' }));
   await user.click(screen.getByRole('button', { name: 'Add to cart $32' }));
   await user.click(screen.getByRole('button', { name: 'Open cart, 1 item' }));
@@ -66,6 +71,11 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   expect(miniCart.getByText('Shipping')).toBeTruthy();
   expect(miniCart.getByText('$9')).toBeTruthy();
   expect(miniCart.getByText('$41')).toBeTruthy();
+  expect(miniCart.getByText('Add $8 to get free shipping')).toBeTruthy();
+  const miniProgress = miniCart.getByRole('progressbar', {
+    name: 'Add $8 to get free shipping',
+  });
+  expect(miniProgress.getAttribute('aria-valuenow')).toBe('80');
   await user.click(
     within(screen.getByRole('dialog')).getByRole('link', {
       name: 'View cart',
@@ -76,6 +86,10 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   expect(summary.getByText('$32')).toBeTruthy();
   expect(summary.getByText('$9')).toBeTruthy();
   expect(summary.getByText('$41')).toBeTruthy();
+  expect(summary.getByText('Add $8 to get free shipping')).toBeTruthy();
+  expect(summary.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+    '80',
+  );
   await waitFor(() => expect(document.activeElement?.id).toBe('main'), {
     onTimeout: (error) => error,
   });
@@ -96,9 +110,16 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   await user.type(quantity, '2');
   await user.tab();
   expect(quantity.value).toBe('2');
-  expect(summary.getByText('$64')).toBeTruthy();
-  expect(summary.getByText('$9')).toBeTruthy();
-  expect(summary.getByText('$73')).toBeTruthy();
+  // Crossing $40 waives shipping, so subtotal and total both read $64.
+  expect(summary.getAllByText('$64')).toHaveLength(2);
+  expect(summary.getByText('$0')).toBeTruthy();
+  expect(summary.queryByText('$9')).toBeNull();
+  expect(summary.getByText('Free shipping unlocked')).toBeTruthy();
+  const unlocked = summary.getByRole('progressbar');
+  expect(unlocked.getAttribute('aria-valuenow')).toBe('100');
+  expect(unlocked.getAttribute('aria-valuetext')).toBe(
+    'Free shipping unlocked',
+  );
   await user.clear(quantity);
   await user.tab();
   expect(quantity.value).toBe('2');
@@ -116,6 +137,13 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   await user.clear(quantity);
   await user.type(quantity, '1');
   await user.tab();
+  // Dropping back below $40 restores the fee and the remaining amount.
+  expect(summary.getByText('Add $8 to get free shipping')).toBeTruthy();
+  expect(summary.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+    '80',
+  );
+  expect(summary.getByText('$9')).toBeTruthy();
+  expect(summary.getByText('$41')).toBeTruthy();
   await user.click(
     within(screen.getByRole('main')).getByRole('link', { name: product.title }),
   );

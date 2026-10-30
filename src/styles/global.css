@@ -866,6 +866,25 @@ em {
   margin-top: 16px;
   display: block;
 }
+.free-shipping {
+  margin-bottom: 24px;
+}
+.free-shipping__message {
+  font-size: 13px;
+}
+.free-shipping__track {
+  height: 6px;
+  margin-top: 10px;
+  background: var(--n6-line-light);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.free-shipping__bar {
+  display: block;
+  height: 100%;
+  background: var(--n6-spectral-violet);
+  transition: width 200ms ease;
+}
 .empty-page {
   min-height: 65vh;
   padding-block: 100px;
