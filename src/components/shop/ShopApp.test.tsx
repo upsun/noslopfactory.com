@@ -16,13 +16,29 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it('retains a memory-only cart through header navigation and simulated checkout when storage writes fail', async () => {
-  window.history.replaceState({}, '', '/shop/products/tee');
-  window.localStorage.clear();
-  window.sessionStorage.clear();
-  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-    throw new Error('Storage blocked');
-  });
+const product: Product = {
+  id: 'tee',
+  title: 'The agreement tee',
+  slogan: 'You’re absolutely right.',
+  category: 'shirts',
+  typography: 'serif',
+  description: 'A test product.',
+  details: ['Cotton'],
+  priceCents: 3200,
+  order: 0,
+  colors: ['black', 'off-white'],
+  sizes: ['M', 'L'],
+  images: [
+    { color: 'black', src: '/products/right-black.webp', alt: 'Black tee' },
+    {
+      color: 'off-white',
+      src: '/products/right-offwhite.webp',
+      alt: 'Off-white tee',
+    },
+  ],
+};
+
+function stubBrowser() {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
   // jsdom does not implement the browser's native dialog methods.
   HTMLDialogElement.prototype.showModal = function () {
@@ -31,27 +47,16 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   HTMLDialogElement.prototype.close = function () {
     this.open = false;
   };
-  const product: Product = {
-    id: 'tee',
-    title: 'The agreement tee',
-    slogan: 'You’re absolutely right.',
-    category: 'shirts',
-    typography: 'serif',
-    description: 'A test product.',
-    details: ['Cotton'],
-    priceCents: 3200,
-    order: 0,
-    colors: ['black', 'off-white'],
-    sizes: ['M', 'L'],
-    images: [
-      { color: 'black', src: '/products/right-black.webp', alt: 'Black tee' },
-      {
-        color: 'off-white',
-        src: '/products/right-offwhite.webp',
-        alt: 'Off-white tee',
-      },
-    ],
-  };
+}
+
+it('retains a memory-only cart through header navigation and simulated checkout when storage writes fail', async () => {
+  window.history.replaceState({}, '', '/shop/products/tee');
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+    throw new Error('Storage blocked');
+  });
+  stubBrowser();
   const user = userEvent.setup();
   render(<ShopApp products={[product]} />);
   await screen.findByRole('heading', { name: product.slogan });
@@ -66,6 +71,10 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   expect(miniCart.getByText('Shipping')).toBeTruthy();
   expect(miniCart.getByText('$9')).toBeTruthy();
   expect(miniCart.getByText('$41')).toBeTruthy();
+  expect(miniCart.getByText('Add $8 to get free shipping')).toBeTruthy();
+  expect(miniCart.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+    '80',
+  );
   await user.click(
     within(screen.getByRole('dialog')).getByRole('link', {
       name: 'View cart',
@@ -76,6 +85,10 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   expect(summary.getByText('$32')).toBeTruthy();
   expect(summary.getByText('$9')).toBeTruthy();
   expect(summary.getByText('$41')).toBeTruthy();
+  expect(summary.getByText('Add $8 to get free shipping')).toBeTruthy();
+  expect(summary.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+    '80',
+  );
   await waitFor(() => expect(document.activeElement?.id).toBe('main'), {
     onTimeout: (error) => error,
   });
@@ -96,9 +109,13 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   await user.type(quantity, '2');
   await user.tab();
   expect(quantity.value).toBe('2');
-  expect(summary.getByText('$64')).toBeTruthy();
-  expect(summary.getByText('$9')).toBeTruthy();
-  expect(summary.getByText('$73')).toBeTruthy();
+  expect(summary.getAllByText('$64')).toHaveLength(2);
+  expect(summary.getByText('$0')).toBeTruthy();
+  expect(summary.queryByText('$9')).toBeNull();
+  expect(summary.getByText('Free shipping unlocked')).toBeTruthy();
+  expect(summary.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+    '100',
+  );
   await user.clear(quantity);
   await user.tab();
   expect(quantity.value).toBe('2');
@@ -116,6 +133,12 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   await user.clear(quantity);
   await user.type(quantity, '1');
   await user.tab();
+  expect(summary.getByText('$9')).toBeTruthy();
+  expect(summary.getByText('$41')).toBeTruthy();
+  expect(summary.getByText('Add $8 to get free shipping')).toBeTruthy();
+  expect(summary.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+    '80',
+  );
   await user.click(
     within(screen.getByRole('main')).getByRole('link', { name: product.title }),
   );
@@ -152,4 +175,50 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   expect(receipt.getByText('$41')).toBeTruthy();
   expect(receipt.getByText('$0')).toBeTruthy();
   expect(window.localStorage.length).toBe(0);
+});
+
+it('unlocks free shipping at $40 and keeps checkout and receipt totals consistent', async () => {
+  window.history.replaceState({}, '', '/shop/products/tee');
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+  stubBrowser();
+  const user = userEvent.setup();
+  render(<ShopApp products={[product]} />);
+  await screen.findByRole('heading', { name: product.slogan });
+  await user.click(screen.getByRole('radio', { name: 'M' }));
+  await user.click(screen.getByRole('button', { name: 'Add to cart $32' }));
+  await user.click(screen.getByRole('button', { name: 'Add another $32' }));
+  await user.click(screen.getByRole('button', { name: 'Open cart, 2 items' }));
+  const miniCart = within(screen.getByRole('dialog'));
+  expect(miniCart.getByText('Free shipping unlocked')).toBeTruthy();
+  expect(miniCart.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+    '100',
+  );
+  expect(miniCart.getByText('$0')).toBeTruthy();
+  // Line total, subtotal and total.
+  expect(miniCart.getAllByText('$64')).toHaveLength(3);
+  await user.click(miniCart.getByRole('link', { name: 'View cart' }));
+  await screen.findByRole('heading', { name: 'Your cart.' });
+  await user.click(screen.getByRole('link', { name: 'Simulated checkout' }));
+  await screen.findByRole('heading', { name: 'Almost real.' });
+  const checkout = within(screen.getByRole('complementary'));
+  expect(checkout.getByText('$0')).toBeTruthy();
+  // Line total, subtotal and total.
+  expect(checkout.getAllByText('$64')).toHaveLength(3);
+  expect(checkout.queryByText('$9')).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Place demo order' }));
+  await screen.findByRole('heading', {
+    name: 'You’re absolutely not being charged.',
+  });
+  const receipt = within(
+    screen.getByRole('region', { name: 'Demo order receipt' }),
+  );
+  expect(receipt.getAllByText('$0')).toHaveLength(2);
+  expect(receipt.getAllByText('$64').length).toBeGreaterThan(0);
+  expect(receipt.queryByText('$9')).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Open cart, 0 items' }));
+  const emptyMiniCart = within(screen.getByRole('dialog'));
+  expect(emptyMiniCart.getByText('Your cart is empty.')).toBeTruthy();
+  expect(emptyMiniCart.queryByRole('progressbar')).toBeNull();
+  expect(emptyMiniCart.queryByText(/free shipping/i)).toBeNull();
 });
