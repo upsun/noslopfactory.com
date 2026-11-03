@@ -48,6 +48,8 @@ Checkout creates a local demo receipt and clears the cart. Only the most recent 
 
 A non-empty cart adds a flat $9 USD shipping fee once, regardless of quantities or variants. Empty carts have no shipping fee. The mini cart, cart, checkout and confirmation show the product subtotal, shipping and total. Receipts retain the shipping amount at order time; receipts from before this fee keep their original total.
 
+Shipping is free when the product subtotal is $40 USD or more, excluding shipping (ADV-2275). Below $40 the flat $9 fee still applies, so a $32 subtotal ($41 with shipping) does not qualify. The mini cart and cart show an accessible progress bar: "Add $x to get free shipping" below the threshold, and a full bar with "Free shipping unlocked" from $40. The bar is hidden for empty carts and updates after every addition, quantity change or removal. New receipts record $0 shipping when the threshold is met; receipts placed before this rule keep their stored fee.
+
 There is no backend, account system, analytics integration, payment provider, or tax calculation. Shipping is simulated; nothing is charged or shipped.
 
 ## Design and scope
