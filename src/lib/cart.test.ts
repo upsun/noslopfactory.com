@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   CART_KEY,
   ORDER_KEY,
+  FREE_SHIPPING_THRESHOLD_CENTS,
+  SHIPPING_CENTS,
   cartTotals,
   createCart,
+  freeShippingProgress,
   lineKey,
   restoreLines,
   type StoragePort,
@@ -88,8 +91,8 @@ describe('variant-aware cart', () => {
     cart.add('tee', 'off-white', 'M');
     expect(totals()).toEqual({
       subtotalCents: 7600,
-      shippingCents: 900,
-      totalCents: 8500,
+      shippingCents: 0,
+      totalCents: 7600,
     });
     for (const item of cart.store.get().lines) cart.remove(lineKey(item));
     expect(totals()).toEqual({
@@ -98,6 +101,71 @@ describe('variant-aware cart', () => {
       totalCents: 0,
     });
   });
+  it('waives shipping from a $40 product subtotal and restores it when the cart drops below', () => {
+    const { cart } = setup();
+    const totals = () => cartTotals(cart.store.get().lines, products);
+    const stickerKey = lineKey({
+      productId: 'sticker',
+      color: 'off-white',
+      size: 'One format',
+    });
+    expect(totals()).toEqual({
+      subtotalCents: 0,
+      shippingCents: 0,
+      totalCents: 0,
+    });
+    cart.add('tee', 'black', 'M');
+    // The $41 total including shipping does not qualify.
+    expect(totals()).toEqual({
+      subtotalCents: 3200,
+      shippingCents: SHIPPING_CENTS,
+      totalCents: 4100,
+    });
+    cart.add('sticker', 'off-white', 'One format', 2);
+    expect(totals()).toEqual({
+      subtotalCents: FREE_SHIPPING_THRESHOLD_CENTS,
+      shippingCents: 0,
+      totalCents: 4000,
+    });
+    cart.quantity(stickerKey, 1);
+    expect(totals()).toEqual({
+      subtotalCents: 3600,
+      shippingCents: 900,
+      totalCents: 4500,
+    });
+    cart.add('tee', 'off-white', 'M');
+    expect(totals()).toEqual({
+      subtotalCents: 6800,
+      shippingCents: 0,
+      totalCents: 6800,
+    });
+    for (const item of cart.store.get().lines) cart.remove(lineKey(item));
+    expect(totals()).toEqual({
+      subtotalCents: 0,
+      shippingCents: 0,
+      totalCents: 0,
+    });
+  });
+  it.each([
+    [0, 0, 4000, false, '$40'],
+    [3200, 80, 800, false, '$8'],
+    [3600, 90, 400, false, '$4'],
+    [3999, 99, 1, false, '$0.01'],
+    [4000, 100, 0, true, '$0'],
+    [6400, 100, 0, true, '$0'],
+  ])(
+    'reports free-shipping progress for a %i cent subtotal',
+    (subtotalCents, percent, remainingCents, unlocked, remaining) => {
+      const progress = freeShippingProgress(subtotalCents);
+      expect(progress).toEqual({
+        thresholdCents: 4000,
+        remainingCents,
+        percent,
+        unlocked,
+      });
+      expect(money(progress.remainingCents)).toBe(remaining);
+    },
+  );
   it('formats editable prices without rounding away cents', () => {
     expect(money(3200)).toBe('$32');
     expect(money(3250)).toBe('$32.50');
@@ -288,8 +356,8 @@ describe('simulated checkout', () => {
     cart.add('tee', 'black', 'M', 2);
     cart.add('sticker', 'off-white', 'One format');
     const order = cart.placeOrder(() => 'DEMO-TEST');
-    expect(order?.totalCents).toBe(7700);
-    expect(order?.shippingCents).toBe(900);
+    expect(order?.totalCents).toBe(6800);
+    expect(order?.shippingCents).toBe(0);
     expect(order?.lines[0]?.title).toBe(shirt.title);
     expect(cart.store.get().lines).toEqual([]);
     expect(JSON.parse(local.getItem(CART_KEY)!)).toEqual({
@@ -299,8 +367,39 @@ describe('simulated checkout', () => {
     expect(cart.placeOrder(() => 'DEMO-DUPLICATE')).toBeNull();
     expect(setup(local, session).cart.store.get().order).toEqual(order);
     cart.add('tee', 'black', 'XS');
-    expect(cart.store.get().order?.totalCents).toBe(7700);
+    expect(cart.store.get().order?.totalCents).toBe(6800);
     expect(cart.store.get().order?.lines).toHaveLength(2);
+  });
+  it.each([
+    ['below the threshold', 0, 3200, 900, 4100],
+    ['exactly at the threshold', 2, 4000, 0, 4000],
+  ])(
+    'snapshots the shipping that applied %s and restores it',
+    (_case, stickers, subtotalCents, shippingCents, totalCents) => {
+      const { cart, local, session } = setup();
+      cart.add('tee', 'black', 'M');
+      if (stickers) cart.add('sticker', 'off-white', 'One format', stickers);
+      expect(cartTotals(cart.store.get().lines, products)).toEqual({
+        subtotalCents,
+        shippingCents,
+        totalCents,
+      });
+      const order = cart.placeOrder(() => 'DEMO-THRESHOLD')!;
+      expect(order.shippingCents).toBe(shippingCents);
+      expect(order.totalCents).toBe(totalCents);
+      expect(JSON.parse(session.getItem(ORDER_KEY)!)).toEqual(order);
+      expect(setup(local, session).cart.store.get().order).toEqual(order);
+    },
+  );
+  it('preserves flat-fee receipts placed above the free-shipping threshold', () => {
+    const { cart } = setup();
+    cart.add('tee', 'black', 'M', 2);
+    const order = cart.placeOrder(() => 'DEMO-FLATFEE')!;
+    const flatFee = { ...order, shippingCents: 900, totalCents: 7300 };
+    const session = memoryStorage({ [ORDER_KEY]: JSON.stringify(flatFee) });
+    expect(setup(memoryStorage(), session).cart.store.get().order).toEqual(
+      flatFee,
+    );
   });
 
   it('does not collect or persist personal information or payment fields', () => {

@@ -849,6 +849,31 @@ em {
 .total-row strong {
   font-weight: 500;
 }
+.shipping-progress {
+  margin-bottom: 24px;
+}
+.shipping-progress__label {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.shipping-progress__track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  /* Outline the empty track instead of filling it, so the fill sits on the
+     page background (white or paper) with at least 3:1 non-text contrast. */
+  box-shadow: inset 0 0 0 1px var(--n6-line-light);
+}
+.shipping-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--n6-spectral-violet);
+  transition: width 0.3s ease;
+}
+.shipping-progress--unlocked .shipping-progress__label {
+  font-weight: 500;
+}
 .order-summary > .meta {
   margin-top: 12px;
   font-size: 10px;

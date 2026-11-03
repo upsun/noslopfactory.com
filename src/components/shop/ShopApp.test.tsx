@@ -66,6 +66,11 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   expect(miniCart.getByText('Shipping')).toBeTruthy();
   expect(miniCart.getByText('$9')).toBeTruthy();
   expect(miniCart.getByText('$41')).toBeTruthy();
+  expect(
+    miniCart
+      .getByRole('progressbar', { name: 'Add $8 to get free shipping' })
+      .getAttribute('aria-valuenow'),
+  ).toBe('80');
   await user.click(
     within(screen.getByRole('dialog')).getByRole('link', {
       name: 'View cart',
@@ -96,9 +101,16 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   await user.type(quantity, '2');
   await user.tab();
   expect(quantity.value).toBe('2');
-  expect(summary.getByText('$64')).toBeTruthy();
-  expect(summary.getByText('$9')).toBeTruthy();
-  expect(summary.getByText('$73')).toBeTruthy();
+  // A $64 subtotal unlocks free shipping, so the total equals the subtotal.
+  expect(summary.getAllByText('$64')).toHaveLength(2);
+  expect(summary.getByText('$0')).toBeTruthy();
+  expect(summary.queryByText('$9')).toBeNull();
+  expect(summary.getByText('Free shipping unlocked')).toBeTruthy();
+  expect(
+    summary
+      .getByRole('progressbar', { name: 'Free shipping unlocked' })
+      .getAttribute('aria-valuenow'),
+  ).toBe('100');
   await user.clear(quantity);
   await user.tab();
   expect(quantity.value).toBe('2');
@@ -116,6 +128,13 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   await user.clear(quantity);
   await user.type(quantity, '1');
   await user.tab();
+  // Dropping back below $40 restores the fee and the remaining amount.
+  expect(summary.getByText('Add $8 to get free shipping')).toBeTruthy();
+  expect(summary.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+    '80',
+  );
+  expect(summary.getByText('$9')).toBeTruthy();
+  expect(summary.getByText('$41')).toBeTruthy();
   await user.click(
     within(screen.getByRole('main')).getByRole('link', { name: product.title }),
   );
@@ -152,4 +171,8 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   expect(receipt.getByText('$41')).toBeTruthy();
   expect(receipt.getByText('$0')).toBeTruthy();
   expect(window.localStorage.length).toBe(0);
+  await user.click(screen.getByRole('button', { name: 'Open cart, 0 items' }));
+  const emptyMiniCart = within(screen.getByRole('dialog'));
+  expect(emptyMiniCart.getByText('Your cart is empty.')).toBeTruthy();
+  expect(emptyMiniCart.queryByRole('progressbar')).toBeNull();
 });
