@@ -10,6 +10,14 @@ import {
 import userEvent from '@testing-library/user-event';
 import ShopApp from './ShopApp';
 import type { Product } from '../../lib/catalog';
+import { CART_KEY, ORDER_KEY } from '../../lib/cart';
+
+// The cart store is a module singleton that hydrates once, so tests that seed
+// storage load a fresh module graph to start from that saved cart.
+async function freshShopApp() {
+  vi.resetModules();
+  return (await import('./ShopApp')).default;
+}
 
 afterEach(() => {
   cleanup();
@@ -66,6 +74,12 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   expect(miniCart.getByText('Shipping')).toBeTruthy();
   expect(miniCart.getByText('$9')).toBeTruthy();
   expect(miniCart.getByText('$41')).toBeTruthy();
+  expect(miniCart.getByText('Add $8 to get free shipping')).toBeTruthy();
+  expect(
+    miniCart
+      .getByRole('progressbar', { name: 'Free shipping progress' })
+      .getAttribute('aria-valuenow'),
+  ).toBe('80');
   await user.click(
     within(screen.getByRole('dialog')).getByRole('link', {
       name: 'View cart',
@@ -76,6 +90,7 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   expect(summary.getByText('$32')).toBeTruthy();
   expect(summary.getByText('$9')).toBeTruthy();
   expect(summary.getByText('$41')).toBeTruthy();
+  expect(summary.getByText('Add $8 to get free shipping')).toBeTruthy();
   await waitFor(() => expect(document.activeElement?.id).toBe('main'), {
     onTimeout: (error) => error,
   });
@@ -96,9 +111,28 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   await user.type(quantity, '2');
   await user.tab();
   expect(quantity.value).toBe('2');
-  expect(summary.getByText('$64')).toBeTruthy();
+  // A $64 subtotal crosses the threshold: free shipping, total equals subtotal.
+  expect(summary.getAllByText('$64')).toHaveLength(2);
+  expect(summary.getByText('$0')).toBeTruthy();
+  expect(summary.queryByText('$9')).toBeNull();
+  expect(summary.getByText('Free shipping unlocked')).toBeTruthy();
+  expect(
+    summary
+      .getByRole('progressbar', { name: 'Free shipping progress' })
+      .getAttribute('aria-valuenow'),
+  ).toBe('100');
+  await user.clear(quantity);
+  await user.type(quantity, '1');
+  await user.tab();
+  expect(quantity.value).toBe('1');
+  // Dropping back below the threshold restores the fee and the prompt.
   expect(summary.getByText('$9')).toBeTruthy();
-  expect(summary.getByText('$73')).toBeTruthy();
+  expect(summary.getByText('$41')).toBeTruthy();
+  expect(summary.getByText('Add $8 to get free shipping')).toBeTruthy();
+  await user.clear(quantity);
+  await user.type(quantity, '2');
+  await user.tab();
+  expect(quantity.value).toBe('2');
   await user.clear(quantity);
   await user.tab();
   expect(quantity.value).toBe('2');
@@ -152,4 +186,159 @@ it('retains a memory-only cart through header navigation and simulated checkout 
   expect(receipt.getByText('$41')).toBeTruthy();
   expect(receipt.getByText('$0')).toBeTruthy();
   expect(window.localStorage.length).toBe(0);
+});
+
+it('shows free-shipping progress and totals consistently at exactly $40 and hides it for an empty cart', async () => {
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+  HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close = function () {
+    this.open = false;
+  };
+  const tee: Product = {
+    id: 'tee',
+    title: 'The agreement tee',
+    slogan: 'You’re absolutely right.',
+    category: 'shirts',
+    typography: 'serif',
+    description: 'A test product.',
+    details: ['Cotton'],
+    priceCents: 3200,
+    order: 0,
+    colors: ['black'],
+    sizes: ['M'],
+    images: [
+      { color: 'black', src: '/products/right-black.webp', alt: 'Black tee' },
+    ],
+  };
+  const sticker: Product = {
+    ...tee,
+    id: 'sticker',
+    title: 'The fix sticker',
+    slogan: 'Fixed it.',
+    category: 'stickers',
+    priceCents: 400,
+    order: 1,
+    colors: ['off-white'],
+    sizes: ['One format'],
+    images: [
+      {
+        color: 'off-white',
+        src: '/products/fixed-sticker.webp',
+        alt: 'Sticker',
+      },
+    ],
+  };
+  window.localStorage.setItem(
+    CART_KEY,
+    JSON.stringify({
+      version: 1,
+      lines: [
+        { productId: 'tee', color: 'black', size: 'M', quantity: 1 },
+        {
+          productId: 'sticker',
+          color: 'off-white',
+          size: 'One format',
+          quantity: 2,
+        },
+      ],
+    }),
+  );
+  window.history.replaceState({}, '', '/shop/cart');
+  const FreshShopApp = await freshShopApp();
+  const user = userEvent.setup();
+  render(<FreshShopApp products={[tee, sticker]} />);
+  await screen.findByRole('heading', { name: 'Your cart.' });
+
+  await user.click(screen.getByRole('button', { name: 'Open cart, 3 items' }));
+  const miniCart = within(screen.getByRole('dialog'));
+  expect(miniCart.getByText('Free shipping unlocked')).toBeTruthy();
+  expect(miniCart.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+    '100',
+  );
+  expect(miniCart.getByText('$0')).toBeTruthy();
+  expect(miniCart.getAllByText('$40')).toHaveLength(2);
+  await user.click(miniCart.getByRole('button', { name: 'Close cart' }));
+
+  const summary = within(screen.getByRole('complementary'));
+  expect(summary.getByText('Free shipping unlocked')).toBeTruthy();
+  expect(summary.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+    '100',
+  );
+  expect(summary.getByText('$0')).toBeTruthy();
+  expect(summary.getAllByText('$40')).toHaveLength(2);
+
+  await user.click(screen.getByRole('link', { name: 'Simulated checkout' }));
+  await screen.findByRole('heading', { name: 'Almost real.' });
+  const checkout = within(screen.getByRole('complementary'));
+  expect(checkout.getByText('$0')).toBeTruthy();
+  expect(checkout.getAllByText('$40')).toHaveLength(2);
+  expect(checkout.queryByRole('progressbar')).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Place demo order' }));
+  await screen.findByRole('heading', {
+    name: 'You’re absolutely not being charged.',
+  });
+  const receipt = within(
+    screen.getByRole('region', { name: 'Demo order receipt' }),
+  );
+  expect(receipt.queryByText('$9')).toBeNull();
+  expect(receipt.getAllByText('$0').length).toBeGreaterThanOrEqual(2);
+  expect(receipt.getAllByText('$40').length).toBeGreaterThanOrEqual(1);
+  const stored = JSON.parse(window.sessionStorage.getItem(ORDER_KEY)!);
+  expect(stored).toMatchObject({ shippingCents: 0, totalCents: 4000 });
+});
+
+it('drops back below the threshold and hides progress once the cart is emptied', async () => {
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+  const tee: Product = {
+    id: 'tee',
+    title: 'The agreement tee',
+    slogan: 'You’re absolutely right.',
+    category: 'shirts',
+    typography: 'serif',
+    description: 'A test product.',
+    details: ['Cotton'],
+    priceCents: 3200,
+    order: 0,
+    colors: ['black'],
+    sizes: ['M'],
+    images: [
+      { color: 'black', src: '/products/right-black.webp', alt: 'Black tee' },
+    ],
+  };
+  window.localStorage.setItem(
+    CART_KEY,
+    JSON.stringify({
+      version: 1,
+      lines: [{ productId: 'tee', color: 'black', size: 'M', quantity: 2 }],
+    }),
+  );
+  window.history.replaceState({}, '', '/shop/cart');
+  const FreshShopApp = await freshShopApp();
+  const user = userEvent.setup();
+  render(<FreshShopApp products={[tee]} />);
+  await screen.findByRole('heading', { name: 'Your cart.' });
+  let summary = within(screen.getByRole('complementary'));
+  expect(summary.getByText('Free shipping unlocked')).toBeTruthy();
+  const quantity = screen.getByRole('spinbutton', {
+    name: 'Quantity for The agreement tee, Black / M',
+  }) as HTMLInputElement;
+  await user.clear(quantity);
+  await user.type(quantity, '1');
+  await user.tab();
+  summary = within(screen.getByRole('complementary'));
+  expect(summary.getByText('Add $8 to get free shipping')).toBeTruthy();
+  expect(summary.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+    '80',
+  );
+  expect(summary.getByText('$9')).toBeTruthy();
+  expect(summary.getByText('$41')).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: /Remove/ }));
+  await screen.findByText('Your next questionable purchase is waiting.');
+  expect(screen.queryByRole('progressbar', { hidden: true })).toBeNull();
 });

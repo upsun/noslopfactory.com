@@ -849,6 +849,28 @@ em {
 .total-row strong {
   font-weight: 500;
 }
+.free-shipping {
+  margin-bottom: 20px;
+}
+.free-shipping__message {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+.free-shipping__track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--n6-line-light);
+}
+.free-shipping__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--n6-ink);
+  transition: width 0.3s ease;
+}
+.free-shipping--unlocked .free-shipping__fill {
+  background: linear-gradient(90deg, var(--n6-ink), var(--n6-spectral-cyan));
+}
 .order-summary > .meta {
   margin-top: 12px;
   font-size: 10px;

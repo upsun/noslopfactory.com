@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   CART_KEY,
+  FREE_SHIPPING_THRESHOLD_CENTS,
   ORDER_KEY,
   cartTotals,
   createCart,
+  freeShippingProgress,
   lineKey,
   restoreLines,
   type StoragePort,
@@ -69,7 +71,7 @@ function setup(local = memoryStorage(), session = memoryStorage()) {
 }
 
 describe('variant-aware cart', () => {
-  it('charges shipping once per non-empty cart and removes it with the last product', () => {
+  it('charges shipping below the free-shipping threshold and removes it with the last product', () => {
     const { cart } = setup();
     const totals = () => cartTotals(cart.store.get().lines, products);
     expect(totals()).toEqual({
@@ -88,8 +90,8 @@ describe('variant-aware cart', () => {
     cart.add('tee', 'off-white', 'M');
     expect(totals()).toEqual({
       subtotalCents: 7600,
-      shippingCents: 900,
-      totalCents: 8500,
+      shippingCents: 0,
+      totalCents: 7600,
     });
     for (const item of cart.store.get().lines) cart.remove(lineKey(item));
     expect(totals()).toEqual({
@@ -97,6 +99,100 @@ describe('variant-aware cart', () => {
       shippingCents: 0,
       totalCents: 0,
     });
+  });
+  it('qualifies for free shipping on the product subtotal alone', () => {
+    const tee = { ...line };
+    const stickers = (quantity: number) => ({
+      productId: 'sticker',
+      color: 'off-white' as const,
+      size: 'One format',
+      quantity,
+    });
+    expect(cartTotals([], products)).toEqual({
+      subtotalCents: 0,
+      shippingCents: 0,
+      totalCents: 0,
+    });
+    // $32 subtotal: the $41 total including shipping does not qualify.
+    expect(cartTotals([tee], products)).toEqual({
+      subtotalCents: 3200,
+      shippingCents: 900,
+      totalCents: 4100,
+    });
+    expect(cartTotals([tee, stickers(1)], products)).toEqual({
+      subtotalCents: 3600,
+      shippingCents: 900,
+      totalCents: 4500,
+    });
+    expect(cartTotals([tee, stickers(2)], products)).toEqual({
+      subtotalCents: 4000,
+      shippingCents: 0,
+      totalCents: 4000,
+    });
+    expect(cartTotals([tee, stickers(3)], products)).toEqual({
+      subtotalCents: 4400,
+      shippingCents: 0,
+      totalCents: 4400,
+    });
+    expect(
+      cartTotals([{ ...line }], [{ ...shirt, priceCents: 3999 }]).shippingCents,
+    ).toBe(900);
+  });
+  it('recalculates shipping when additions, quantity changes and removals cross the threshold', () => {
+    const { cart } = setup();
+    const totals = () => cartTotals(cart.store.get().lines, products);
+    const stickerKey = lineKey({
+      productId: 'sticker',
+      color: 'off-white',
+      size: 'One format',
+    });
+    cart.add('tee', 'black', 'M');
+    cart.add('sticker', 'off-white', 'One format');
+    expect(totals().shippingCents).toBe(900);
+    cart.add('sticker', 'off-white', 'One format');
+    expect(totals()).toMatchObject({ shippingCents: 0, totalCents: 4000 });
+    cart.quantity(stickerKey, 1);
+    expect(totals()).toMatchObject({ shippingCents: 900, totalCents: 4500 });
+    cart.quantity(stickerKey, 2);
+    expect(totals().shippingCents).toBe(0);
+    cart.remove(stickerKey);
+    expect(totals()).toMatchObject({ shippingCents: 900, totalCents: 4100 });
+    cart.quantity(lineKey(line), 2);
+    expect(totals()).toMatchObject({ shippingCents: 0, totalCents: 6400 });
+    cart.remove(lineKey(line));
+    expect(totals()).toEqual({
+      subtotalCents: 0,
+      shippingCents: 0,
+      totalCents: 0,
+    });
+  });
+  it('reports free-shipping progress capped at 100%', () => {
+    expect(freeShippingProgress(0)).toEqual({
+      unlocked: false,
+      remainingCents: 4000,
+      percent: 0,
+    });
+    expect(freeShippingProgress(3200)).toEqual({
+      unlocked: false,
+      remainingCents: 800,
+      percent: 80,
+    });
+    expect(freeShippingProgress(3999)).toEqual({
+      unlocked: false,
+      remainingCents: 1,
+      percent: 99,
+    });
+    expect(freeShippingProgress(4000)).toEqual({
+      unlocked: true,
+      remainingCents: 0,
+      percent: 100,
+    });
+    expect(freeShippingProgress(10000)).toEqual({
+      unlocked: true,
+      remainingCents: 0,
+      percent: 100,
+    });
+    expect(FREE_SHIPPING_THRESHOLD_CENTS).toBe(4000);
   });
   it('formats editable prices without rounding away cents', () => {
     expect(money(3200)).toBe('$32');
@@ -288,8 +384,8 @@ describe('simulated checkout', () => {
     cart.add('tee', 'black', 'M', 2);
     cart.add('sticker', 'off-white', 'One format');
     const order = cart.placeOrder(() => 'DEMO-TEST');
-    expect(order?.totalCents).toBe(7700);
-    expect(order?.shippingCents).toBe(900);
+    expect(order?.totalCents).toBe(6800);
+    expect(order?.shippingCents).toBe(0);
     expect(order?.lines[0]?.title).toBe(shirt.title);
     expect(cart.store.get().lines).toEqual([]);
     expect(JSON.parse(local.getItem(CART_KEY)!)).toEqual({
@@ -299,8 +395,52 @@ describe('simulated checkout', () => {
     expect(cart.placeOrder(() => 'DEMO-DUPLICATE')).toBeNull();
     expect(setup(local, session).cart.store.get().order).toEqual(order);
     cart.add('tee', 'black', 'XS');
-    expect(cart.store.get().order?.totalCents).toBe(7700);
+    expect(cart.store.get().order?.totalCents).toBe(6800);
     expect(cart.store.get().order?.lines).toHaveLength(2);
+  });
+
+  it('stores the computed shipping in receipts on both sides of the threshold', () => {
+    const below = setup();
+    below.cart.add('tee', 'black', 'M');
+    below.cart.add('sticker', 'off-white', 'One format');
+    const paid = below.cart.placeOrder(() => 'DEMO-PAID')!;
+    expect(paid).toMatchObject({ shippingCents: 900, totalCents: 4500 });
+    expect(
+      setup(memoryStorage(), below.session).cart.store.get().order,
+    ).toEqual(paid);
+
+    const exact = setup();
+    exact.cart.add('tee', 'black', 'M');
+    exact.cart.add('sticker', 'off-white', 'One format', 2);
+    const free = exact.cart.placeOrder(() => 'DEMO-FREE')!;
+    expect(free).toMatchObject({ shippingCents: 0, totalCents: 4000 });
+    expect(
+      setup(memoryStorage(), exact.session).cart.store.get().order,
+    ).toEqual(free);
+  });
+
+  it('preserves receipts placed before the free-shipping threshold', () => {
+    const legacy = {
+      reference: 'DEMO-PRETHRESHOLD',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      lines: [
+        {
+          productId: 'tee',
+          title: shirt.title,
+          color: 'black',
+          size: 'M',
+          image: '/products/right-black.webp',
+          quantity: 2,
+          priceCents: 3200,
+        },
+      ],
+      shippingCents: 900,
+      totalCents: 7300,
+    };
+    const session = memoryStorage({ [ORDER_KEY]: JSON.stringify(legacy) });
+    expect(setup(memoryStorage(), session).cart.store.get().order).toEqual(
+      legacy,
+    );
   });
 
   it('does not collect or persist personal information or payment fields', () => {
