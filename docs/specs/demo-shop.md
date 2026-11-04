@@ -38,6 +38,8 @@ Simulated checkout presents an order summary and one explicit demo-order action.
 
 As approved by G/ on 2026-10-27 in [issue #4](https://github.com/upsun/noslopfactory.com/issues/4), add a flat $9 USD shipping fee once per non-empty cart. Empty carts have a $0 shipping fee and total. Show subtotal, shipping and total consistently in the mini cart, cart, checkout and fake confirmation. Persist the fee in new receipt snapshots; restore older receipts with no added fee.
 
+Per ADV-2278, shipping is free once the product subtotal (shipping excluded) is $40 USD or more; below $40 the flat $9 fee remains, so a $32 subtotal shows "Add $8 to get free shipping" and its $41 total does not qualify. The mini cart and cart show an accessible progress indicator (`role="progressbar"`, capped at 100%, rounded down so it is full only at $40) with "Add $x to get free shipping" in USD, or "Free shipping unlocked" at or above the threshold. Hide it when the cart is empty and recalculate immediately after additions, quantity changes and removals, including when the subtotal falls below $40 again. Checkout and confirmation use the same shipping and totals; new receipts snapshot the fee that applied when the order was placed, and existing receipts (including those charged $9 at $40 or more) restore unchanged.
+
 ## Implementation and verification
 
 1. Add React/TanStack integrations, shared design tokens, Astro content collection and nine products.
