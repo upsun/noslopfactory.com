@@ -5,6 +5,7 @@ export const CART_KEY = 'noslopfactory.cart.v1';
 export const ORDER_KEY = 'noslopfactory.order.v1';
 export const MAX_QUANTITY = 99;
 const SHIPPING_CENTS = 900;
+export const FREE_SHIPPING_THRESHOLD_CENTS = 4000;
 export interface CartLine {
   productId: string;
   color: Color;
@@ -149,7 +150,11 @@ function restoreOrder(raw: string | null): DemoOrder | null {
         priceCents: line.priceCents,
       });
     }
-    // Receipts saved before shipping was introduced keep their original total.
+    // Receipts keep the shipping fee that applied when they were placed:
+    // receipts saved before shipping was introduced have none (0), receipts
+    // saved before free shipping may carry the flat fee at any subtotal, and
+    // newer receipts store 0 at or above the free-shipping threshold. So the
+    // fee is not re-derived from the subtotal; only the total must add up.
     const shippingCents =
       value.shippingCents === undefined ? 0 : value.shippingCents;
     if (shippingCents !== 0 && shippingCents !== SHIPPING_CENTS) return null;
@@ -178,11 +183,28 @@ export function cartTotals(lines: CartLine[], products: Product[]) {
     (sum, line) => sum + (prices.get(line.productId) ?? 0) * line.quantity,
     0,
   );
-  const shippingCents = lines.length ? SHIPPING_CENTS : 0;
+  const shippingCents =
+    lines.length && subtotalCents < FREE_SHIPPING_THRESHOLD_CENTS
+      ? SHIPPING_CENTS
+      : 0;
   return {
     subtotalCents,
     shippingCents,
     totalCents: subtotalCents + shippingCents,
+  };
+}
+
+// Progress toward free shipping, based on the product subtotal only (shipping
+// excluded). The percentage rounds down so the bar is full only at the threshold.
+export function freeShippingProgress(subtotalCents: number) {
+  const subtotal = Math.max(0, subtotalCents);
+  return {
+    remainingCents: Math.max(0, FREE_SHIPPING_THRESHOLD_CENTS - subtotal),
+    percent: Math.min(
+      100,
+      Math.floor((subtotal * 100) / FREE_SHIPPING_THRESHOLD_CENTS),
+    ),
+    unlocked: subtotal >= FREE_SHIPPING_THRESHOLD_CENTS,
   };
 }
 
@@ -315,12 +337,14 @@ export function createCart(initialProducts: Product[] = []) {
           image: image.src,
         });
       }
+      // Snapshot the shipping fee that applied when the order was placed.
+      const { shippingCents, totalCents } = cartTotals(selections, products);
       const order: DemoOrder = {
         reference: makeReference(),
         createdAt: new Date().toISOString(),
         lines,
-        shippingCents: SHIPPING_CENTS,
-        totalCents: cartTotals(selections, products).totalCents,
+        shippingCents,
+        totalCents,
       };
       store.setState((state) => ({ ...state, order, lines: [] }));
       write(session, ORDER_KEY, order);

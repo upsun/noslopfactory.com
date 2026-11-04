@@ -853,6 +853,31 @@ em {
   margin-top: 12px;
   font-size: 10px;
 }
+.free-shipping {
+  margin-bottom: 20px;
+}
+.free-shipping__message {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.free-shipping__track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--n6-line-light);
+  overflow: hidden;
+}
+.free-shipping__fill {
+  height: 100%;
+  max-width: 100%;
+  border-radius: inherit;
+  background: var(--n6-ink);
+  transition: width 0.3s ease;
+}
+.free-shipping--unlocked .free-shipping__message {
+  font-weight: 500;
+}
 .order-summary__total {
   border-top: 1px solid var(--n6-line-light);
   margin-top: 24px;
