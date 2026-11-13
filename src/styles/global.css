@@ -866,6 +866,33 @@ em {
   margin-top: 16px;
   display: block;
 }
+.shipping-progress {
+  margin-bottom: 20px;
+}
+.shipping-progress__message {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+.shipping-progress__track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--n6-line-light);
+  overflow: hidden;
+}
+.shipping-progress__fill {
+  width: var(--progress, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--n6-spectral-cyan),
+    var(--n6-spectral-blue)
+  );
+  transition: width 0.3s ease;
+}
+.shipping-progress--unlocked .shipping-progress__fill {
+  background: var(--n6-spectral-cyan);
+}
 .empty-page {
   min-height: 65vh;
   padding-block: 100px;
