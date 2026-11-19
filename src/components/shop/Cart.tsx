@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { cartTotals } from '../../lib/cart';
 import { OrderTotals } from './OrderTotals';
+import { FreeShippingProgress } from './FreeShippingProgress';
 import { useCatalog } from './CatalogContext';
 import { useCart } from './useCart';
 import { CartItems } from './CartItems';
@@ -55,6 +56,9 @@ export default function Cart() {
         <CartItems lines={state.lines} products={products} />
         <aside className="order-summary">
           <h2>The short version.</h2>
+          <FreeShippingProgress
+            subtotalCents={cartTotals(state.lines, products).subtotalCents}
+          />
           <OrderTotals totals={cartTotals(state.lines, products)} />
           <p className="meta">USD. No tax charges.</p>
           <Link className="button button--dark button--wide" to="/checkout">

@@ -849,6 +849,34 @@ em {
 .total-row strong {
   font-weight: 500;
 }
+.shipping-progress {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.shipping-progress__message {
+  margin: 0;
+  font-size: 13px;
+}
+.shipping-progress__track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--n6-line-light);
+}
+.shipping-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--n6-ink);
+}
+.shipping-progress--unlocked .shipping-progress__fill {
+  box-shadow: inset 0 -2px 0 var(--n6-spectral-cyan);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .shipping-progress__fill {
+    transition: width 200ms ease;
+  }
+}
 .order-summary > .meta {
   margin-top: 12px;
   font-size: 10px;
