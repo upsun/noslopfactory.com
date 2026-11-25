@@ -1,15 +1,15 @@
 ---
-import { getCollection } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
-const products = (await getCollection('products'))
-  .map(({ id, data }) => ({ id, ...data }))
-  .sort((a, b) => a.order - b.order);
+import CatalogData from '../components/CatalogData.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
 ---
 
 <BaseLayout title="Less slop. More thought.">
-  <Header products={products} client:load />
+  <CatalogData />
+  <div id="site-header-root">
+    <Header />
+  </div>
   <main class="home-placeholder wrap" id="main">
     <span class="eyebrow">NOSLOPFACTORY / A WORK IN PROGRESS</span>
     <h1>
@@ -40,3 +40,7 @@ const products = (await getCollection('products'))
   </main>
   <Footer />
 </BaseLayout>
+
+<script>
+  import '../shop/headerEntry';
+</script>

@@ -30,7 +30,7 @@ Shirts offer black and off-white in XS, S, M, L, XL, 2XL, 3XL. Caps are one size
 
 ## Boundaries
 
-Astro owns public documents and build-time content validation. A React application under `/shop` uses TanStack Router for the catalog, product, cart, checkout, and confirmation views. Known shop entry paths are prerendered by Astro so direct links and refreshes work on static hosting. The rest of the site remains Astro. TanStack Store provides shared cart state, including the header mini cart.
+Astro owns public documents and build-time content validation. A Foldkit application under `/shop` routes the catalog, product, cart, checkout, and confirmation views. Known shop entry paths are prerendered by Astro so direct links and refreshes work on static hosting. The rest of the site remains Astro. A shared Foldkit cart module provides the cart state, including the header mini cart. As requested by G/ on 2026-11-24, the shop moved from React and TanStack to Foldkit and Effect. See [ADR 0002](../adr/0002-foldkit-effect-shop.md).
 
 The cart persists in versioned browser localStorage. A line is identified by product, color and size. Store only product identifiers, selections and quantity; derive current prices from content. Reject malformed storage and unavailable products/variants, cap quantities at 99, and keep the shop usable when storage is blocked. Reconcile storage events between tabs. No network API is needed.
 
@@ -40,9 +40,9 @@ As approved by G/ on 2026-10-27 in [issue #4](https://github.com/upsun/noslopfac
 
 ## Implementation and verification
 
-1. Add React/TanStack integrations, shared design tokens, Astro content collection and nine products.
+1. Add the shop framework integration (React/TanStack at first, Foldkit/Effect since 2026-11-24), shared design tokens, Astro content collection and nine products.
 2. Build catalog/category filters, product pages and variant selection, header mini cart and cart page.
 3. Implement resilient persistence and checkout/confirmation, then integrate generated product photos.
-4. Test variant identity, quantity arithmetic, malformed/stale storage, storage failure, confirmation snapshots and cart clearing. Validate types/content and the static build. Exercise direct entry paths and the complete purchase flow at desktop and mobile widths, including keyboard/dialog behavior. Run React Doctor and independent architecture/correctness/specification review.
+4. Test variant identity, quantity arithmetic, malformed/stale storage, storage failure, confirmation snapshots and cart clearing. Validate types/content and the static build. Exercise direct entry paths and the complete purchase flow at desktop and mobile widths, including keyboard/dialog behavior. Run independent architecture/correctness/specification review.
 
 This is an additive MINOR feature. The governing issue stays open until G/ explicitly requests completion.

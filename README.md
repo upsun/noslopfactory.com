@@ -1,6 +1,6 @@
 # noslopfactory
 
-An Astro website for future AI education, with a simulated merchandise shop at `/shop`. The homepage is intentionally a placeholder. The shop uses React, TanStack Router and TanStack Store. It takes no real orders and collects no payment or personal information.
+An Astro website for future AI education, with a simulated merchandise shop at `/shop`. The homepage is intentionally a placeholder. The shop uses [Foldkit](https://foldkit.dev/) and [Effect](https://effect.website/). It takes no real orders and collects no payment or personal information.
 
 ## Development
 
@@ -20,7 +20,24 @@ pnpm build
 pnpm format:check
 ```
 
-The build produces static files in `dist/`. Astro generates direct entry pages for the catalog, every product, cart, checkout, and confirmation. Shop navigation after loading is handled by TanStack Router. When adding a non-product shop route, update both `ShopApp.tsx` and the static path list in `src/pages/shop/[...path].astro`.
+The build produces static files in `dist/`. Astro generates direct entry pages for the catalog, every product, cart, checkout, and confirmation. Shop navigation after loading is handled by the Foldkit router. When you add a non-product shop route, update both `src/shop/route.ts` and the static path list in `src/pages/shop/[...path].astro`.
+
+## Shop architecture
+
+The shop follows The Elm Architecture (one Model, typed Messages, a pure update function, and Commands for side effects).
+
+| Path                               | Contents                                                                                                                              |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/catalog.ts`               | The product schema that the browser decodes, and the category and size lists that the content collection uses.                        |
+| `src/lib/cart.ts`                  | Pure cart rules: lines, quantities, totals, receipts, and the saved data formats.                                                     |
+| `src/shop/cart.ts`                 | The cart module that the shop and the homepage header share. It holds storage Commands, the mini cart, and the tab-sync Subscription. |
+| `src/shop/main.ts`                 | The shop application: routes, pages, navigation, and focus.                                                                           |
+| `src/shop/header.ts`               | The header program for pages outside the shop.                                                                                        |
+| `src/components/CatalogData.astro` | Embeds the validated catalog as JSON for the browser programs.                                                                        |
+
+`foldkit` and `@foldkit/vite-plugin` are pinned to exact versions, because Foldkit is pre-1.0. Foldkit requires Effect 4.1. Read the Foldkit changelog before you upgrade either package.
+
+Tests use Foldkit stories for update functions and Foldkit scenes for views. Scene tests do not start a browser.
 
 ## Product content
 

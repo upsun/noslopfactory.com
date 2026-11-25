@@ -1,0 +1,12 @@
+---
+import { getCollection } from 'astro:content';
+import { CATALOG_DATA_ID } from '../lib/catalog';
+
+// The Foldkit programs read the validated catalog from this block at startup.
+const products = (await getCollection('products'))
+  .map(({ id, data }) => ({ id, ...data }))
+  .sort((a, b) => a.order - b.order);
+const json = JSON.stringify(products).replace(/</g, '\\u003c');
+---
+
+<script type="application/json" id={CATALOG_DATA_ID} set:html={json} />

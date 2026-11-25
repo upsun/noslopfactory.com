@@ -1530,3 +1530,20 @@ em {
   font-size: 12px;
   line-height: 1.5;
 }
+
+/* Foldkit renders each program into one root element. */
+.app-root {
+  display: contents;
+}
+/* Foldkit opens the mini cart with show(), so the page dim is an element, not ::backdrop. */
+.mini-cart-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483599;
+  background: rgba(2, 3, 6, 0.4);
+  backdrop-filter: blur(3px);
+}
+/* Dom.showDialog sets an inline `inset: 0`. Keep the mini cart on the right. */
+.mini-cart[open] {
+  inset: 0 0 0 auto !important;
+}
