@@ -13,6 +13,8 @@ export const CART_KEY = 'noslopfactory.cart.v1';
 export const ORDER_KEY = 'noslopfactory.order.v1';
 export const MAX_QUANTITY = 99;
 export const SHIPPING_CENTS = 900;
+/** Product subtotal, shipping excluded, at which shipping becomes free. */
+export const FREE_SHIPPING_THRESHOLD_CENTS = 4000;
 const MAX_SAVED_LINES = 500;
 
 const Quantity = Schema.Int.check(
@@ -208,6 +210,33 @@ export interface Totals {
   totalCents: number;
 }
 
+/** Shipping for a cart: free when empty or at a product subtotal of $40 or more. */
+export const shippingFor = (subtotalCents: number, hasLines: boolean) =>
+  !hasLines || subtotalCents >= FREE_SHIPPING_THRESHOLD_CENTS
+    ? 0
+    : SHIPPING_CENTS;
+
+export interface FreeShippingProgress {
+  remainingCents: number;
+  percent: number;
+  isUnlocked: boolean;
+}
+
+/** How far a product subtotal is from free shipping. Progress is capped at 100%. */
+export const freeShippingProgress = (
+  subtotalCents: number,
+): FreeShippingProgress => ({
+  remainingCents: Math.max(0, FREE_SHIPPING_THRESHOLD_CENTS - subtotalCents),
+  percent: Math.min(
+    100,
+    Math.max(
+      0,
+      Math.floor((subtotalCents * 100) / FREE_SHIPPING_THRESHOLD_CENTS),
+    ),
+  ),
+  isUnlocked: subtotalCents >= FREE_SHIPPING_THRESHOLD_CENTS,
+});
+
 export function cartTotals(
   lines: ReadonlyArray<CartLine>,
   products: ReadonlyArray<Product>,
@@ -218,7 +247,7 @@ export function cartTotals(
       (findProduct(products, line.productId)?.priceCents ?? 0) * line.quantity,
     0,
   );
-  const shippingCents = lines.length ? SHIPPING_CENTS : 0;
+  const shippingCents = shippingFor(subtotalCents, lines.length > 0);
   return {
     subtotalCents,
     shippingCents,
@@ -252,12 +281,13 @@ export function createOrder(
       image: productImage(product, line.color).src,
     });
   }
+  const totals = cartTotals(lines, products);
   return Option.some({
     reference,
     createdAt,
     lines: orderLines,
-    shippingCents: SHIPPING_CENTS,
-    totalCents: cartTotals(lines, products).totalCents,
+    shippingCents: totals.shippingCents === 0 ? 0 : SHIPPING_CENTS,
+    totalCents: totals.totalCents,
   });
 }
 

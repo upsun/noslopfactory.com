@@ -2,11 +2,13 @@ import { Option } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   addLine,
+  FREE_SHIPPING_THRESHOLD_CENTS,
   cartTotals,
   createOrder,
   demoReference,
   encodeCart,
   encodeOrder,
+  freeShippingProgress,
   lineKey,
   removeLine,
   restoreLines,
@@ -64,13 +66,125 @@ describe('variant-aware cart', () => {
     lines = add(lines, 'tee', 'off-white', 'M');
     expect(cartTotals(lines, products)).toEqual({
       subtotalCents: 7600,
-      shippingCents: 900,
-      totalCents: 8500,
+      shippingCents: 0,
+      totalCents: 7600,
     });
     lines = lines.reduce(
       (rest, item) => removeLine(rest, lineKey(item)),
       lines,
     );
+    expect(cartTotals(lines, products)).toEqual({
+      subtotalCents: 0,
+      shippingCents: 0,
+      totalCents: 0,
+    });
+  });
+
+  it.each([
+    {
+      name: 'empty',
+      lines: [] as CartLine[],
+      shipping: 0,
+      remaining: 4000,
+      percent: 0,
+      unlocked: false,
+    },
+    {
+      name: '$4',
+      lines: [
+        {
+          productId: 'sticker',
+          color: 'off-white',
+          size: 'One format',
+          quantity: 1,
+        },
+      ] as CartLine[],
+      shipping: 900,
+      remaining: 3600,
+      percent: 10,
+      unlocked: false,
+    },
+    {
+      name: '$32',
+      lines: [line],
+      shipping: 900,
+      remaining: 800,
+      percent: 80,
+      unlocked: false,
+    },
+    {
+      name: 'exactly $40',
+      lines: [
+        {
+          productId: 'sticker',
+          color: 'off-white',
+          size: 'One format',
+          quantity: 10,
+        },
+      ] as CartLine[],
+      shipping: 0,
+      remaining: 0,
+      percent: 100,
+      unlocked: true,
+    },
+    {
+      name: '$64',
+      lines: [{ ...line, quantity: 2 }],
+      shipping: 0,
+      remaining: 0,
+      percent: 100,
+      unlocked: true,
+    },
+  ])(
+    'applies free shipping from a $40 product subtotal: $name',
+    ({ lines, shipping, remaining, percent, unlocked }) => {
+      const totals = cartTotals(lines, products);
+      expect(totals.shippingCents).toBe(shipping);
+      expect(totals.totalCents).toBe(totals.subtotalCents + shipping);
+      expect(freeShippingProgress(totals.subtotalCents)).toEqual({
+        remainingCents: remaining,
+        percent,
+        isUnlocked: unlocked,
+      });
+    },
+  );
+
+  it('judges free shipping on the subtotal, not the total including shipping', () => {
+    const totals = cartTotals([line], products);
+    expect(totals).toEqual({
+      subtotalCents: 3200,
+      shippingCents: 900,
+      totalCents: 4100,
+    });
+    expect(FREE_SHIPPING_THRESHOLD_CENTS).toBe(4000);
+    expect(money(freeShippingProgress(3250).remainingCents)).toBe('$7.50');
+    expect(freeShippingProgress(3999)).toEqual({
+      remainingCents: 1,
+      percent: 99,
+      isUnlocked: false,
+    });
+  });
+
+  it('recalculates shipping when changes cross $40 in either direction', () => {
+    let lines = add([], 'tee', 'black', 'M');
+    expect(cartTotals(lines, products).shippingCents).toBe(900);
+    lines = setQuantity(lines, lineKey(line), 2);
+    expect(cartTotals(lines, products)).toEqual({
+      subtotalCents: 6400,
+      shippingCents: 0,
+      totalCents: 6400,
+    });
+    lines = setQuantity(lines, lineKey(line), 1);
+    expect(cartTotals(lines, products)).toEqual({
+      subtotalCents: 3200,
+      shippingCents: 900,
+      totalCents: 4100,
+    });
+    lines = add(lines, 'sticker', 'off-white', 'One format', 2);
+    expect(cartTotals(lines, products).shippingCents).toBe(0);
+    lines = removeLine(lines, lineKey(line));
+    expect(cartTotals(lines, products).shippingCents).toBe(900);
+    lines = removeLine(lines, lineKey(lines[0]!));
     expect(cartTotals(lines, products)).toEqual({
       subtotalCents: 0,
       shippingCents: 0,
@@ -180,7 +294,7 @@ describe('browser persistence format', () => {
 });
 
 describe('simulated checkout', () => {
-  it('creates a stable receipt snapshot with shipping', () => {
+  it('creates a stable receipt snapshot with free shipping at $40 or more', () => {
     const lines = add(
       add([], 'tee', 'black', 'M', 2),
       'sticker',
@@ -188,11 +302,27 @@ describe('simulated checkout', () => {
       'One format',
     );
     const receipt = order(lines);
-    expect(receipt.totalCents).toBe(7700);
-    expect(receipt.shippingCents).toBe(900);
+    expect(receipt.totalCents).toBe(6800);
+    expect(receipt.shippingCents).toBe(0);
+    expect(receipt.totalCents).toBe(cartTotals(lines, products).totalCents);
     expect(receipt.lines[0]?.title).toBe(shirt.title);
     expect(receipt.lines[0]?.image).toBe('/products/right-black.webp');
     expect(restoreOrder(encodeOrder(receipt))).toEqual(Option.some(receipt));
+  });
+
+  it('stores $9 shipping on receipts below $40', () => {
+    const receipt = order([line]);
+    expect(receipt.shippingCents).toBe(900);
+    expect(receipt.totalCents).toBe(4100);
+    expect(restoreOrder(encodeOrder(receipt))).toEqual(Option.some(receipt));
+  });
+
+  it('preserves receipts saved under the flat $9 fee, even above $40', () => {
+    const receipt = order([{ ...line, quantity: 2 }], 'DEMO-OLD');
+    const oldReceipt = { ...receipt, shippingCents: 900, totalCents: 7300 };
+    expect(restoreOrder(JSON.stringify(oldReceipt))).toEqual(
+      Option.some(oldReceipt),
+    );
   });
 
   it('creates no receipt for an empty cart or a stale line', () => {

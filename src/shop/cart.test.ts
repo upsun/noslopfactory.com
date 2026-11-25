@@ -210,7 +210,7 @@ describe('simulated checkout', () => {
         expect(cart.lines).toEqual([]);
         expect(
           Option.map(cart.maybeOrder, (order) => order.totalCents),
-        ).toEqual(Option.some(7300));
+        ).toEqual(Option.some(6400));
       }),
       Command.expectExact(Cart.SaveOrder, Cart.SaveCart({ lines: [] })),
       Command.resolveAllExact(

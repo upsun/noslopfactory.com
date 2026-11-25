@@ -866,6 +866,30 @@ em {
   margin-top: 16px;
   display: block;
 }
+.free-shipping {
+  margin-bottom: 24px;
+}
+.free-shipping__message {
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.free-shipping__track {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--n6-line-light);
+}
+.free-shipping__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--n6-ink);
+  transition: width 0.25s ease;
+}
+.free-shipping.is-unlocked .free-shipping__fill {
+  background: var(--n6-spectral-cyan);
+}
 .empty-page {
   min-height: 65vh;
   padding-block: 100px;

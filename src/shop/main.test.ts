@@ -4,7 +4,13 @@ import { Option } from 'effect';
 import { Scene, Story } from 'foldkit';
 import { fromString, type Url } from 'foldkit/url';
 import { describe, expect, it } from 'vitest';
-import { encodeCart, encodeOrder, createOrder } from '../lib/cart';
+import {
+  encodeCart,
+  encodeOrder,
+  createOrder,
+  type CartLine,
+  type DemoOrder,
+} from '../lib/cart';
 import { products } from '../test/catalog';
 import * as Cart from './cart';
 import {
@@ -38,18 +44,21 @@ const url = (path: string): Url =>
 const shopAt = (
   path: string,
   state: Readonly<{
-    lines?: ReadonlyArray<typeof line>;
+    lines?: ReadonlyArray<CartLine>;
     isStorageBlocked?: boolean;
     hasReceipt?: boolean;
+    receipt?: DemoOrder;
   }> = {},
 ): Model =>
   init(
     {
       products,
       maybeSavedCart: Option.some(encodeCart(state.lines ?? [])),
-      maybeSavedOrder: state.hasReceipt
-        ? Option.some(encodeOrder(receipt))
-        : Option.none(),
+      maybeSavedOrder: state.receipt
+        ? Option.some(encodeOrder(state.receipt))
+        : state.hasReceipt
+          ? Option.some(encodeOrder(receipt))
+          : Option.none(),
       cartStorage: state.isStorageBlocked ? 'Blocked' : 'Available',
       orderStorage: 'Available',
     },
@@ -205,6 +214,8 @@ describe('views', () => {
         expectView(text('Shipping')).toExist(),
         expectView(text('$9')).toExist(),
         expectView(text('$41')).toExist(),
+        expectView(text('Add $8 to get free shipping')).toExist(),
+        expectView(role('progressbar')).toHaveAttr('aria-valuenow', '80'),
         expectView(role('link', { name: /^View cart/ })).toHaveAttr(
           'href',
           '/shop/cart',
@@ -234,7 +245,9 @@ describe('views', () => {
         inside(
           role('complementary'),
           expectView(text('$64')).toExist(),
-          expectView(text('$73')).toExist(),
+          expectView(text('$73')).not.toExist(),
+          expectView(text('Free shipping unlocked')).toExist(),
+          expectView(role('progressbar')).toHaveAttr('aria-valuenow', '100'),
         ),
         type(quantity, '150'),
         expectView(text(/Use a whole number from 1 to 99/)).toExist(),
@@ -243,6 +256,115 @@ describe('views', () => {
         expectView(quantity).toHaveValue('2'),
         expectView(quantity).toHaveAttr('aria-invalid', 'false'),
         expectView(text(/Quantity restored to 2/)).toExist(),
+      ),
+    );
+  });
+
+  it('updates free-shipping progress when the cart crosses $40 in either direction', () => {
+    const increase = role('button', {
+      name: 'Increase quantity for the agreement tee, black / m',
+    });
+    const decrease = role('button', {
+      name: 'Decrease quantity for the agreement tee, black / m',
+    });
+    const summary = role('complementary');
+    Scene.scene(
+      { update, view },
+      Scene.given(shopAt('/shop/cart', { lines: [line] })),
+      inside(
+        summary,
+        expectView(text('Add $8 to get free shipping')).toExist(),
+        expectView(role('progressbar')).toHaveAttr('aria-valuenow', '80'),
+        expectView(role('progressbar')).toHaveAttr(
+          'aria-valuetext',
+          '$32 of $40 toward free shipping',
+        ),
+        expectView(text('$9')).toExist(),
+        expectView(text('$41')).toExist(),
+      ),
+      click(increase),
+      Scene.Command.resolve(Cart.SaveCart, Cart.Message.SucceededSaveCart()),
+      inside(
+        summary,
+        expectView(text('Free shipping unlocked')).toExist(),
+        expectView(role('progressbar')).toHaveAttr('aria-valuenow', '100'),
+        expectView(text('$0')).toExist(),
+        expectView(text('$9')).not.toExist(),
+      ),
+      click(decrease),
+      Scene.Command.resolve(Cart.SaveCart, Cart.Message.SucceededSaveCart()),
+      inside(
+        summary,
+        expectView(text('Add $8 to get free shipping')).toExist(),
+        expectView(role('progressbar')).toHaveAttr('aria-valuenow', '80'),
+        expectView(text('$41')).toExist(),
+      ),
+    );
+  });
+
+  it('unlocks free shipping at exactly $40', () => {
+    const stickers = {
+      productId: 'sticker',
+      color: 'off-white',
+      size: 'One format',
+      quantity: 10,
+    } as const;
+    Scene.scene(
+      { update, view },
+      Scene.given(shopAt('/shop/cart', { lines: [stickers] })),
+      inside(
+        role('complementary'),
+        expectView(text('Free shipping unlocked')).toExist(),
+        expectView(role('progressbar')).toHaveAttr('aria-valuenow', '100'),
+        expectView(text('$40')).toExist(),
+        expectView(text('$0')).toExist(),
+      ),
+    );
+  });
+
+  it('shows no free-shipping progress for an empty cart', () => {
+    Scene.scene(
+      { update, view },
+      Scene.given(shopAt('/shop/cart')),
+      expectView(role('progressbar')).not.toExist(),
+      expectView(text(/to get free shipping/)).not.toExist(),
+    );
+  });
+
+  it('charges no shipping at checkout above $40', () => {
+    Scene.scene(
+      { update, view },
+      Scene.given(
+        shopAt('/shop/checkout', { lines: [{ ...line, quantity: 2 }] }),
+      ),
+      inside(
+        role('complementary'),
+        expectView(text('$0')).toExist(),
+        expectView(text('$64')).toExist(),
+        expectView(text('$73')).not.toExist(),
+      ),
+    );
+  });
+
+  it('shows free shipping on a receipt placed above $40', () => {
+    Scene.scene(
+      { update, view },
+      Scene.given(
+        shopAt('/shop/confirmation', {
+          receipt: Option.getOrThrow(
+            createOrder(
+              [{ ...line, quantity: 2 }],
+              products,
+              'DEMO-FREE',
+              '2026-11-24T10:00:00.000Z',
+            ),
+          ),
+        }),
+      ),
+      inside(
+        role('region', { name: 'Demo order receipt' }),
+        expectView(text('$64')).toExist(),
+        expectView(text('$9')).not.toExist(),
       ),
     );
   });

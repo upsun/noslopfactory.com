@@ -1,5 +1,9 @@
 import type { Html, HtmlBuilder } from 'foldkit/html';
-import type { Totals } from '../lib/cart';
+import {
+  FREE_SHIPPING_THRESHOLD_CENTS,
+  freeShippingProgress,
+  type Totals,
+} from '../lib/cart';
 import { money } from '../lib/catalog';
 import { catalogRouter } from './route';
 
@@ -61,6 +65,46 @@ export const orderTotalsView = <M>(
     [h.strong([], [totalLabel]), h.strong([], [money(totals.totalCents)])],
   ),
 ];
+
+/** Progress toward free shipping. Renders nothing for an empty cart. */
+export const freeShippingProgressView = <M>(
+  h: HtmlBuilder<M>,
+  subtotalCents: number,
+): Html => {
+  if (subtotalCents <= 0) return h.empty;
+  const { remainingCents, percent, isUnlocked } =
+    freeShippingProgress(subtotalCents);
+  const message = isUnlocked
+    ? 'Free shipping unlocked'
+    : `Add ${money(remainingCents)} to get free shipping`;
+  return h.div(
+    [h.Class(isUnlocked ? 'free-shipping is-unlocked' : 'free-shipping')],
+    [
+      h.p([h.Class('free-shipping__message'), h.AriaLive('polite')], [message]),
+      h.div(
+        [
+          h.Class('free-shipping__track'),
+          h.Role('progressbar'),
+          h.AriaLabel('Free shipping progress'),
+          h.AriaValuemin(0),
+          h.AriaValuemax(100),
+          h.AriaValuenow(percent),
+          h.AriaValuetext(
+            isUnlocked
+              ? 'Free shipping unlocked'
+              : `${money(subtotalCents)} of ${money(FREE_SHIPPING_THRESHOLD_CENTS)} toward free shipping`,
+          ),
+        ],
+        [
+          h.span(
+            [h.Class('free-shipping__fill'), h.Style({ width: `${percent}%` })],
+            [],
+          ),
+        ],
+      ),
+    ],
+  );
+};
 
 export const backToCollection = <M>(h: HtmlBuilder<M>) =>
   h.a(

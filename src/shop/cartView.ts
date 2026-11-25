@@ -17,7 +17,13 @@ import {
   type Surface,
 } from './cart';
 import { cartRouter, catalogRouter, productRouter } from './route';
-import { arrow, bag, hidden, orderTotalsView } from './view';
+import {
+  arrow,
+  bag,
+  freeShippingProgressView,
+  hidden,
+  orderTotalsView,
+} from './view';
 
 type H = HtmlBuilder<Message>;
 
@@ -228,27 +234,34 @@ const miniCartView = (model: Model, h: H): Html =>
             ],
           ),
         ],
-        onNonEmpty: (lines) => [
-          cartItemsView(model, { surface: 'MiniCart' }, h),
-          h.div(
-            [h.Class('mini-cart__bottom')],
-            [
-              ...orderTotalsView(h, cartTotals(lines, model.products)),
-              h.p([h.Class('meta')], ['Demo products. No real charges.']),
-              h.a(
-                [
-                  h.Class('button button--dark button--wide'),
-                  h.Href(cartRouter()),
-                ],
-                ['View cart ', arrow(h)],
-              ),
-              h.a(
-                [h.Class('text-button continue-link'), h.Href(catalogRouter())],
-                ['Keep looking'],
-              ),
-            ],
-          ),
-        ],
+        onNonEmpty: (lines) => {
+          const totals = cartTotals(lines, model.products);
+          return [
+            cartItemsView(model, { surface: 'MiniCart' }, h),
+            h.div(
+              [h.Class('mini-cart__bottom')],
+              [
+                freeShippingProgressView(h, totals.subtotalCents),
+                ...orderTotalsView(h, totals),
+                h.p([h.Class('meta')], ['Demo products. No real charges.']),
+                h.a(
+                  [
+                    h.Class('button button--dark button--wide'),
+                    h.Href(cartRouter()),
+                  ],
+                  ['View cart ', arrow(h)],
+                ),
+                h.a(
+                  [
+                    h.Class('text-button continue-link'),
+                    h.Href(catalogRouter()),
+                  ],
+                  ['Keep looking'],
+                ),
+              ],
+            ),
+          ];
+        },
       }),
     ],
   );

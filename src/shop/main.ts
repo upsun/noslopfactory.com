@@ -24,6 +24,7 @@ import {
 import {
   arrow,
   emptyStateView,
+  freeShippingProgressView,
   orderTotalsView,
   storageNoticeView,
 } from './view';
@@ -333,6 +334,7 @@ const cartView = (model: Model, h: H): Html => {
       ],
     );
   }
+  const totals = cartTotals(model.cart.lines, model.cart.products);
   return h.main(
     [h.Class('wrap flow-page'), h.Id(MAIN_ID)],
     [
@@ -351,10 +353,8 @@ const cartView = (model: Model, h: H): Html => {
             [h.Class('order-summary')],
             [
               h.h2([], ['The short version.']),
-              ...orderTotalsView(
-                h,
-                cartTotals(model.cart.lines, model.cart.products),
-              ),
+              freeShippingProgressView(h, totals.subtotalCents),
+              ...orderTotalsView(h, totals),
               h.p([h.Class('meta')], ['USD. No tax charges.']),
               h.a(
                 [
