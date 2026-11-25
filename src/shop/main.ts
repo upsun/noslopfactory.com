@@ -108,8 +108,11 @@ export const init: Runtime.RoutingApplicationInit<
 
 // A new page opens at its fragment target if there is one, otherwise at the top.
 const scrollAfterNavigation = (url: string) => {
-  const fragment = decodeURIComponent(
-    new URL(url, window.location.href).hash.slice(1),
+  const raw = new URL(url, window.location.href).hash.slice(1);
+  // A malformed percent sequence cannot name an element, so it falls back to the raw text.
+  const fragment = Option.getOrElse(
+    Option.liftThrowable(decodeURIComponent)(raw),
+    () => raw,
   );
   const target = fragment ? document.getElementById(fragment) : null;
   if (target) {
