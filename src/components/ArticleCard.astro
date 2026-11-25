@@ -1,0 +1,44 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import ArticleTile from './ArticleTile.astro';
+import { formatArticleDate, readingMinutes } from '../lib/articles';
+
+interface Props {
+  article: CollectionEntry<'articles'>;
+  isFeatured?: boolean;
+  headingLevel?: 2 | 3;
+}
+const { article, isFeatured = false, headingLevel = 3 } = Astro.props;
+const { title, description, publishedAt, category, mark, accent } =
+  article.data;
+const Heading = headingLevel === 2 ? 'h2' : 'h3';
+const minutes = readingMinutes(article.body ?? '');
+---
+
+<article
+  class:list={['article-card', isFeatured && 'article-card--featured']}
+  data-accent={accent}
+>
+  <div class="article-card__bar">
+    <span class="article-card__category">
+      <span class="article-card__dot" aria-hidden="true"></span>
+      {category}
+    </span>
+    <time datetime={publishedAt.toISOString().slice(0, 10)}>
+      {formatArticleDate(publishedAt, 'short')}
+    </time>
+  </div>
+  <div class="article-card__body">
+    <div class="article-card__text">
+      <Heading class="article-card__title">
+        <a href={`/articles/${article.id}`}>{title}</a>
+      </Heading>
+      <p class="article-card__excerpt">{description}</p>
+    </div>
+    {isFeatured && <ArticleTile mark={mark} accent={accent} size="medium" />}
+  </div>
+  <p class="article-card__foot">
+    <span>{minutes} min read</span>
+    <span aria-hidden="true">↗</span>
+  </p>
+</article>

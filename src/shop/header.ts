@@ -1,7 +1,7 @@
 import type { Update } from 'foldkit';
 import type { Html, HtmlBuilder } from 'foldkit/html';
 import * as Cart from './cart';
-import { headerView } from './cartView';
+import { headerView, type Section } from './cartView';
 
 /** The header and mini cart on pages outside the shop. Links load shop pages. */
 export const Model = Cart.Model;
@@ -25,5 +25,10 @@ export const update = (
   return { model: cartUpdate.model, commands: cartUpdate.commands };
 };
 
-export const view = (model: Cart.Model, h: HtmlBuilder<Cart.Message>): Html =>
-  headerView(model, { isShop: false }, h);
+export const SECTIONS: ReadonlyArray<Section> = ['Project', 'Articles'];
+
+/** Each page outside the shop names its section, so the view marks the current link. */
+export const viewFor =
+  (section: Section) =>
+  (model: Cart.Model, h: HtmlBuilder<Cart.Message>): Html =>
+    headerView(model, { section }, h);

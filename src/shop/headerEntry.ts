@@ -2,12 +2,18 @@ import { Runtime } from 'foldkit';
 import {
   Flags,
   Model,
+  SECTIONS,
   flags,
   init,
   subscriptions,
   update,
-  view,
+  viewFor,
 } from './header';
+
+const container = document.getElementById('site-header-root');
+const section =
+  SECTIONS.find((value) => value === container?.dataset['section']) ??
+  'Project';
 
 const element = Runtime.makeElement({
   Model,
@@ -15,9 +21,9 @@ const element = Runtime.makeElement({
   flags,
   init,
   update,
-  view,
+  view: viewFor(section),
   subscriptions,
-  container: document.getElementById('site-header-root'),
+  container,
 });
 
 Runtime.run(element);

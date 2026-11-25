@@ -1,5 +1,12 @@
 ---
 // Static placeholder. The Foldkit header program replaces it when it starts.
+import type { Section } from '../shop/cartView';
+
+interface Props {
+  section: Section;
+}
+const { section } = Astro.props;
+const current = (value: Section) => (section === value ? 'page' : undefined);
 ---
 
 <header class="site-header">
@@ -12,10 +19,13 @@
     </span>
   </a>
   <nav class="capsule-nav" aria-label="Main navigation">
-    <a href="/" aria-current="page">
+    <a href="/" aria-current={current('Project')}>
       The project
     </a>
-    <a href="/shop">
+    <a href="/articles" aria-current={current('Articles')}>
+      Articles
+    </a>
+    <a href="/shop" aria-current={current('Shop')}>
       The shop <span aria-hidden="true">↗</span>
     </a>
   </nav>
