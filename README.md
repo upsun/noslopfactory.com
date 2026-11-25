@@ -24,7 +24,7 @@ The build produces static files in `dist/`. Astro generates direct entry pages f
 
 ## Shop architecture
 
-The shop follows The Elm Architecture (one Model, typed Messages, a pure update function, and Commands for side effects).
+The shop follows The Elm Architecture (one Model, typed Messages, a pure update function, and Commands for side effects). [ADR 0002](docs/adr/0002-foldkit-effect-shop.md) records why the shop uses Foldkit and Effect.
 
 | Path                               | Contents                                                                                                                              |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -72,7 +72,8 @@ There is no backend, account system, analytics integration, payment provider, or
 The visual system reuses number6.ai's approved fonts, neutral palette, grid, spacing, and control rules. Claude-referencing product photography uses an approximate editorial serif, not a bundled proprietary Claude font.
 
 - [Approved scope and verification plan](docs/specs/demo-shop.md)
-- [Architecture decision](docs/adr/0001-astro-site-react-shop.md)
+- [Architecture decision: Foldkit and Effect shop](docs/adr/0002-foldkit-effect-shop.md)
+- [Earlier architecture decision: Astro site and React shop](docs/adr/0001-astro-site-react-shop.md), partly replaced by ADR 0002
 - [Governing issue](https://github.com/upsun/noslopfactory.com/issues/1)
 
 SemVer impact: additive MINOR feature.

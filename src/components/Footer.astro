@@ -11,9 +11,19 @@
       noslopfactory<span>.*</span>
     </a>
     <div class="footer-bottom">
-      <span>© {new Date().getFullYear()} noslopfactory</span>
+      <span>
+        © <span data-current-year>{new Date().getFullYear()}</span>{' '}
+        noslopfactory
+      </span>
       <span>A demo shop. Nothing for sale. Plenty to question.</span>
       <span class="mono">HUMAN IN THE LOOP ↗</span>
     </div>
   </div>
 </footer>
+
+<script is:inline>
+  // The build sets the year. The visitor's clock keeps it current until the next build.
+  document.querySelectorAll('[data-current-year]').forEach((node) => {
+    node.textContent = String(new Date().getFullYear());
+  });
+</script>

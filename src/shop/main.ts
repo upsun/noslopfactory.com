@@ -106,17 +106,26 @@ export const init: Runtime.RoutingApplicationInit<
 
 // COMMAND
 
+// A new page opens at its fragment target if there is one, otherwise at the top.
+const scrollAfterNavigation = (url: string) => {
+  const fragment = decodeURIComponent(
+    new URL(url, window.location.href).hash.slice(1),
+  );
+  const target = fragment ? document.getElementById(fragment) : null;
+  if (target) {
+    target.scrollIntoView();
+  } else {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }
+};
+
 export const NavigateInternal = Command.define('NavigateInternal', {
   args: { url: Schema.String },
   messages: [Message.CompletedNavigateInternal],
   execute: ({ url }) =>
     pushUrl(url).pipe(
       Effect.andThen(Render.afterCommit),
-      Effect.andThen(
-        Effect.sync(() =>
-          window.scrollTo({ top: 0, left: 0, behavior: 'instant' }),
-        ),
-      ),
+      Effect.andThen(Effect.sync(() => scrollAfterNavigation(url))),
       Effect.as(Message.CompletedNavigateInternal()),
     ),
 });
