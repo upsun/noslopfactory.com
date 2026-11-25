@@ -253,7 +253,6 @@ const miniCartView = (model: Model, h: H): Html =>
     ],
   );
 
-/** The site header, its cart button and the mini cart dialog. */
 /** The site section that the header marks as the current page. */
 export type Section = 'Project' | 'Articles' | 'Shop';
 
@@ -265,6 +264,7 @@ const navLink = (
 ) =>
   h.a([h.Href(href), ...(isCurrent ? [h.AriaCurrent('page')] : [])], children);
 
+/** The site header, its cart button and the mini cart dialog. */
 export const headerView = Submodel.defineView<
   Model,
   Message,

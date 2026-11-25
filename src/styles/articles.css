@@ -63,9 +63,6 @@
   background: var(--n6-white);
   border-color: rgba(8, 9, 11, 0.32);
 }
-.article-card:focus-within {
-  border-color: var(--n6-ink);
-}
 .article-card--featured {
   grid-column: span 2;
 }
@@ -123,9 +120,17 @@
   inset: 0;
   border-radius: inherit;
 }
-.article-card__title a:focus-visible {
-  outline: none;
-  box-shadow: none;
+/* The focus ring goes around the whole card, in the site focus style. */
+@supports selector(:has(*)) {
+  .article-card:has(.article-card__title a:focus-visible) {
+    outline: 2px solid var(--n6-ink);
+    outline-offset: 4px;
+    box-shadow: 0 0 0 6px var(--n6-spectral-cyan);
+  }
+  .article-card__title a:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
 }
 .article-card__excerpt {
   display: -webkit-box;

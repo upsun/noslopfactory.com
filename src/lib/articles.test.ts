@@ -21,6 +21,8 @@ describe('articles', () => {
         `## Title\n\n[a link](https://example.com) - **bold**\n\n\`\`\`ts\n${'code '.repeat(500)}\n\`\`\``,
       ),
     ).toBe(1);
+    expect(readingMinutes('step-by-step '.repeat(230))).toBe(1);
+    expect(readingMinutes('- item\n'.repeat(230))).toBe(1);
   });
 
   it('sorts the newest article first', () => {

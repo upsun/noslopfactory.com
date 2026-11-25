@@ -63,7 +63,7 @@ The frontmatter sets these fields:
 | `accent`      | The tile color: `cyan`, `blue`, `violet`, or `warm`.                            |
 | `draft`       | Optional. If it is `true`, only the dev server shows the article.               |
 
-Each `##` heading becomes an entry in the contents list beside the article. The homepage shows the three newest articles. The reading time counts the words at 230 words per minute.
+If an article has two or more `##` headings, they form a contents list beside the article. Screens narrower than 1100px do not show this list. The homepage shows the three newest articles. The reading time counts the words at 230 words per minute.
 
 ## Deployment caching
 

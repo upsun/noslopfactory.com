@@ -17,7 +17,7 @@ export function readingMinutes(markdown: string): number {
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/[#>*_`|-]/g, ' ')
+    .replace(/[#>*_`|]/g, ' ')
     .split(/\s+/)
     .filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
   return Math.max(1, Math.ceil(words / WORDS_PER_MINUTE));
