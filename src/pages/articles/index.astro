@@ -1,0 +1,43 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import ArticleCard from '../../components/ArticleCard.astro';
+import { getArticles } from '../../lib/articleQueries';
+
+const articles = await getArticles();
+const count = String(articles.length).padStart(2, '0');
+---
+
+<SiteLayout
+  title="Articles"
+  description="Short, practical notes on working with AI without taking it at its word."
+  section="Articles"
+>
+  <main class="articles-index wrap" id="main">
+    <header class="articles-intro">
+      <span class="eyebrow">NOSLOPFACTORY / ARTICLES</span>
+      <h1>
+        Articles<span class="articles-intro__dot">.</span>
+      </h1>
+      <p class="articles-intro__dek">
+        Short, practical notes on working with AI without taking it at its word.
+      </p>
+    </header>
+    <div class="articles-toolbar">
+      <span class="eyebrow">{count} ARTICLES</span>
+      <span class="eyebrow muted">NEWEST FIRST</span>
+    </div>
+    {articles.length === 0 ? (
+      <p class="articles-empty">The first article is still being written.</p>
+    ) : (
+      <div class="article-grid">
+        {articles.map((article, index) => (
+          <ArticleCard
+            article={article}
+            isFeatured={index === 0}
+            headingLevel={2}
+          />
+        ))}
+      </div>
+    )}
+  </main>
+</SiteLayout>

@@ -1,46 +1,58 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
-import CatalogData from '../components/CatalogData.astro';
-import Header from '../components/Header.astro';
-import Footer from '../components/Footer.astro';
+import SiteLayout from '../layouts/SiteLayout.astro';
+import ArticleCard from '../components/ArticleCard.astro';
+import { getArticles } from '../lib/articleQueries';
+
+const latest = (await getArticles()).slice(0, 3);
 ---
 
-<BaseLayout title="Less slop. More thought.">
-  <CatalogData />
-  <div id="site-header-root">
-    <Header />
-  </div>
-  <main class="home-placeholder wrap" id="main">
-    <span class="eyebrow">NOSLOPFACTORY / A WORK IN PROGRESS</span>
-    <h1>
-      Less slop.
-      <br />
-      More <em>thought.</em>
-      <span class="home-asterisk" aria-hidden="true">
-        *
-      </span>
-    </h1>
-    <div class="home-placeholder__bottom">
-      <div>
-        <p>
-          A little more understanding.
-          <br />A little less taking the machine at its word.
-        </p>
-        <p class="muted">
-          The educational part is coming.
-          <br />
-          The imaginary merchandise is already here.
-        </p>
+<SiteLayout title="Less slop. More thought." section="Project">
+  <main id="main">
+    <div class="home-placeholder wrap">
+      <span class="eyebrow">NOSLOPFACTORY / A WORK IN PROGRESS</span>
+      <h1>
+        Less slop.
+        <br />
+        More <em>thought.</em>
+        <span class="home-asterisk" aria-hidden="true">
+          *
+        </span>
+      </h1>
+      <div class="home-placeholder__bottom">
+        <div>
+          <p>
+            A little more understanding.
+            <br />A little less taking the machine at its word.
+          </p>
+          <p class="muted">
+            The educational part has started.
+            <br />
+            The imaginary merchandise is already here.
+          </p>
+        </div>
+        <a class="button button--dark" href="/shop">
+          Visit the demo shop <span aria-hidden="true">↗</span>
+        </a>
       </div>
-      <a class="button button--dark" href="/shop">
-        Visit the demo shop <span aria-hidden="true">↗</span>
-      </a>
+      <span class="eyebrow home-footnote">*HUMAN INPUT STILL REQUIRED.</span>
     </div>
-    <span class="eyebrow home-footnote">*HUMAN INPUT STILL REQUIRED.</span>
+    {latest.length > 0 && (
+      <section class="home-articles wrap" aria-labelledby="latest-title">
+        <div class="home-articles__head">
+          <div>
+            <span class="eyebrow">FROM THE NOTEBOOK</span>
+            <h2 id="latest-title">Latest articles.</h2>
+          </div>
+          <a class="button" href="/articles">
+            All articles <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+        <div class="article-grid">
+          {latest.map((article) => (
+            <ArticleCard article={article} />
+          ))}
+        </div>
+      </section>
+    )}
   </main>
-  <Footer />
-</BaseLayout>
-
-<script>
-  import '../shop/headerEntry';
-</script>
+</SiteLayout>

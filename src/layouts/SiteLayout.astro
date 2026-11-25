@@ -1,0 +1,30 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import CatalogData from '../components/CatalogData.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import type { Section } from '../shop/cartView';
+import '../styles/articles.css';
+
+// Pages outside the shop: the Foldkit header program takes over the static header.
+interface Props {
+  title: string;
+  description?: string;
+  section: Exclude<Section, 'Shop'>;
+}
+const { title, description, section } = Astro.props;
+---
+
+<BaseLayout title={title} description={description}>
+  <slot name="head" slot="head" />
+  <CatalogData />
+  <div id="site-header-root" data-section={section}>
+    <Header section={section} />
+  </div>
+  <slot />
+  <Footer />
+</BaseLayout>
+
+<script>
+  import '../shop/headerEntry';
+</script>

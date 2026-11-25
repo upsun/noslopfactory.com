@@ -2,6 +2,7 @@ import { defineCollection } from 'astro:content';
 import { z } from 'astro/zod';
 import { glob } from 'astro/loaders';
 import { categories, shirtSizes } from './lib/catalog';
+import { articleAccents, articleCategories } from './lib/articles';
 
 const color = z.enum(['black', 'off-white']);
 const photo = z.object({
@@ -57,4 +58,18 @@ const products = defineCollection({
     }),
 });
 
-export const collections = { products };
+const articles = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/articles' }),
+  schema: z.object({
+    title: z.string().min(1),
+    description: z.string().min(1).max(220),
+    publishedAt: z.coerce.date(),
+    category: z.enum(articleCategories),
+    // A short glyph and a palette color draw the article tile, so articles need no image.
+    mark: z.string().min(1).max(3),
+    accent: z.enum(articleAccents),
+    draft: z.boolean().default(false),
+  }),
+});
+
+export const collections = { products, articles };

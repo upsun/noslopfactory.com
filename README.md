@@ -47,6 +47,24 @@ The collection schema in `src/content.config.ts` validates content during checks
 
 Product images contain the printed words. Changing the slogan in content changes site text, but does not rewrite the words in the photograph. Regenerate the affected photo when changing the artwork. See [image generation notes](docs/product-images.md).
 
+## Articles
+
+Each article is one Markdown file in `src/content/articles/`. The filename is the URL segment: `source.md` is served at `/articles/source`. Use a flat, lowercase, hyphenated filename.
+
+The frontmatter sets these fields:
+
+| Field         | Contents                                                                        |
+| ------------- | ------------------------------------------------------------------------------- |
+| `title`       | The article title.                                                              |
+| `description` | One or two sentences, 220 characters at most. Cards and the page intro use it.  |
+| `publishedAt` | The publication date, for example `2026-11-24`. The newest article comes first. |
+| `category`    | `Habits`, `Verification`, or `Perspective`.                                     |
+| `mark`        | One to three characters that the article tile shows instead of a cover image.   |
+| `accent`      | The tile color: `cyan`, `blue`, `violet`, or `warm`.                            |
+| `draft`       | Optional. If it is `true`, only the dev server shows the article.               |
+
+If an article has two or more `##` headings, they form a contents list beside the article. Screens narrower than 1100px do not show this list. The homepage shows the three newest articles. The reading time counts the words at 230 words per minute.
+
 ## Deployment caching
 
 HTML and stable public URLs, including product photos and favicons, use `no-cache, max-age=0, must-revalidate`. Browsers may retain a response, but must check it with the server before reuse. Only Astro's generated, fingerprinted files under `/_astro/` use four-week public immutable caching, because a changed file gets a new URL.

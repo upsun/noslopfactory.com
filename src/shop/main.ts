@@ -648,7 +648,7 @@ export const view = (model: Model, h: H): Document => ({
         slotId: 'header',
         model: model.cart,
         view: headerView,
-        viewInputs: { isShop: true },
+        viewInputs: { section: 'Shop' },
         toParentMessage: toCartMessage,
       }),
       AppRoute.match(model.route, {

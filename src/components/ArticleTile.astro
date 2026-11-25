@@ -1,0 +1,19 @@
+---
+import type { ArticleAccent } from '../lib/articles';
+
+// A typographic tile stands in for a cover image.
+interface Props {
+  mark: string;
+  accent: ArticleAccent;
+  size?: 'large' | 'medium';
+}
+const { mark, accent, size = 'large' } = Astro.props;
+---
+
+<span
+  class:list={['article-tile', `article-tile--${size}`]}
+  data-accent={accent}
+  aria-hidden="true"
+>
+  <span>{mark}</span>
+</span>

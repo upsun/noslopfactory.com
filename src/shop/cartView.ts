@@ -253,12 +253,23 @@ const miniCartView = (model: Model, h: H): Html =>
     ],
   );
 
+/** The site section that the header marks as the current page. */
+export type Section = 'Project' | 'Articles' | 'Shop';
+
+const navLink = (
+  h: HtmlBuilder<Message>,
+  href: string,
+  isCurrent: boolean,
+  children: ReadonlyArray<Html | string>,
+) =>
+  h.a([h.Href(href), ...(isCurrent ? [h.AriaCurrent('page')] : [])], children);
+
 /** The site header, its cart button and the mini cart dialog. */
 export const headerView = Submodel.defineView<
   Model,
   Message,
-  Readonly<{ isShop: boolean }>
->((model, { isShop }, h) => {
+  Readonly<{ section: Section }>
+>((model, { section }, h) => {
   const count = itemCount(model.lines);
   return h.div(
     [h.Class('app-root')],
@@ -282,17 +293,12 @@ export const headerView = Submodel.defineView<
           h.nav(
             [h.Class('capsule-nav'), h.AriaLabel('Main navigation')],
             [
-              h.a(
-                [h.Href('/'), ...(isShop ? [] : [h.AriaCurrent('page')])],
-                ['The project'],
-              ),
-              h.a(
-                [
-                  h.Href(catalogRouter()),
-                  ...(isShop ? [h.AriaCurrent('page')] : []),
-                ],
-                ['The shop ', hidden(h, '↗')],
-              ),
+              navLink(h, '/', section === 'Project', ['The project']),
+              navLink(h, '/articles', section === 'Articles', ['Articles']),
+              navLink(h, catalogRouter(), section === 'Shop', [
+                'The shop ',
+                hidden(h, '↗'),
+              ]),
             ],
           ),
           h.button(
