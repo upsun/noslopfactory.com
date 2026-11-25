@@ -1,6 +1,6 @@
 # Keep the React shop inside the Astro site
 
-Status: accepted, 2026-10-27. Approved by G/ in the design interview.
+Status: accepted, 2026-10-27. Approved by G/ in the design interview. The React, TanStack Router and TanStack Store parts are superseded by [ADR 0002](0002-foldkit-effect-shop.md). The Astro, static path and storage decisions remain in force.
 
 ## Context
 

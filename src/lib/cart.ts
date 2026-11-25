@@ -1,181 +1,221 @@
-import { createStore } from '@tanstack/react-store';
-import { validVariant, type Color, type Product } from './catalog';
+import { Option, Schema } from 'effect';
+import {
+  Color,
+  MAX_PRICE_CENTS,
+  PHOTO_PATH,
+  findProduct,
+  productImage,
+  validVariant,
+  type Product,
+} from './catalog';
 
 export const CART_KEY = 'noslopfactory.cart.v1';
 export const ORDER_KEY = 'noslopfactory.order.v1';
 export const MAX_QUANTITY = 99;
-const SHIPPING_CENTS = 900;
-export interface CartLine {
-  productId: string;
-  color: Color;
-  size: string;
-  quantity: number;
-}
-export interface OrderLine extends CartLine {
-  title: string;
-  priceCents: number;
-  image: string;
-}
-export interface DemoOrder {
-  reference: string;
-  createdAt: string;
-  lines: OrderLine[];
-  shippingCents: number;
-  totalCents: number;
-}
-export interface CartState {
-  lines: CartLine[];
-  order: DemoOrder | null;
-  ready: boolean;
-  storageBlocked: boolean;
-}
-export type StoragePort = Pick<Storage, 'getItem' | 'setItem'>;
-function demoReference() {
-  const bytes = globalThis.crypto?.getRandomValues?.(new Uint8Array(4));
-  const suffix = bytes
-    ? Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
-    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  return `DEMO-${suffix.toUpperCase()}`;
-}
+export const SHIPPING_CENTS = 900;
+const MAX_SAVED_LINES = 500;
+
+const Quantity = Schema.Int.check(
+  Schema.isBetween({ minimum: 1, maximum: MAX_QUANTITY }),
+);
+
+/** One cart line. A product, color and size combination identifies it. */
+export const CartLine = Schema.Struct({
+  productId: Schema.String,
+  color: Color,
+  size: Schema.String,
+  quantity: Quantity,
+});
+export type CartLine = typeof CartLine.Type;
+export const CartLines = Schema.Array(CartLine);
+
+export const OrderLine = Schema.Struct({
+  productId: Schema.String,
+  title: Schema.String,
+  color: Color,
+  size: Schema.String,
+  quantity: Quantity,
+  priceCents: Schema.Int.check(
+    Schema.isBetween({ minimum: 1, maximum: MAX_PRICE_CENTS }),
+  ),
+  image: Schema.String.check(Schema.isPattern(PHOTO_PATH)),
+});
+export type OrderLine = typeof OrderLine.Type;
+
+/** The immutable snapshot of a simulated order. */
+export const DemoOrder = Schema.Struct({
+  reference: Schema.String.check(Schema.isPattern(/^DEMO-[A-Z0-9-]{1,40}$/)),
+  createdAt: Schema.String.check(
+    Schema.makeFilter((value: string) => Number.isFinite(Date.parse(value))),
+  ),
+  lines: Schema.Array(OrderLine).check(
+    Schema.isMinLength(1),
+    Schema.isMaxLength(MAX_SAVED_LINES),
+  ),
+  shippingCents: Schema.Literals([0, SHIPPING_CENTS]),
+  totalCents: Schema.Int,
+});
+export type DemoOrder = typeof DemoOrder.Type;
+
+const SavedCart = Schema.fromJsonString(
+  Schema.Struct({
+    version: Schema.Literal(1),
+    lines: Schema.Array(Schema.Unknown),
+  }),
+);
+const SavedLine = Schema.Struct({
+  productId: Schema.String,
+  color: Color,
+  size: Schema.String,
+  quantity: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
+});
+// Receipts saved before shipping existed have no shipping field.
+const SavedOrder = Schema.fromJsonString(
+  Schema.Struct({
+    ...DemoOrder.fields,
+    shippingCents: Schema.optionalKey(DemoOrder.fields.shippingCents),
+  }),
+);
+const decodeSavedCart = Schema.decodeUnknownOption(SavedCart);
+const decodeSavedLine = Schema.decodeUnknownOption(SavedLine);
+const decodeSavedOrder = Schema.decodeUnknownOption(SavedOrder);
+
+export type LineKey = string;
 export const lineKey = (line: Pick<CartLine, 'productId' | 'color' | 'size'>) =>
   JSON.stringify([line.productId, line.color, line.size]);
 
-function record(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+const capped = (quantity: number) => Math.min(quantity, MAX_QUANTITY);
+
+function mergeLine(
+  lines: ReadonlyArray<CartLine>,
+  line: CartLine,
+): ReadonlyArray<CartLine> {
+  const key = lineKey(line);
+  return lines.some((item) => lineKey(item) === key)
+    ? lines.map((item) =>
+        lineKey(item) === key
+          ? { ...item, quantity: capped(item.quantity + line.quantity) }
+          : item,
+      )
+    : [...lines, line];
 }
 
+/** Restores saved selections. Unknown products, variants and malformed data are discarded. */
 export function restoreLines(
   raw: string | null,
-  products: Product[],
-): CartLine[] {
-  if (!raw) return [];
-  try {
-    const saved: unknown = JSON.parse(raw);
-    if (!record(saved) || saved.version !== 1 || !Array.isArray(saved.lines))
-      return [];
-    const lines = new Map<string, CartLine>();
-    const productsById = new Map(
-      products.map((product) => [product.id, product]),
-    );
-    for (const candidate of saved.lines.slice(0, 500)) {
-      if (!record(candidate)) continue;
-      const product =
-        typeof candidate.productId === 'string'
-          ? productsById.get(candidate.productId)
-          : undefined;
-      if (!product || !validVariant(product, candidate.color, candidate.size))
-        continue;
-      if (
-        typeof candidate.quantity !== 'number' ||
-        !Number.isInteger(candidate.quantity) ||
-        candidate.quantity < 1
-      )
-        continue;
-      const line: CartLine = {
-        productId: product.id,
-        color: candidate.color as Color,
-        size: candidate.size as string,
-        quantity: Math.min(candidate.quantity, MAX_QUANTITY),
-      };
-      const previous = lines.get(lineKey(line));
-      lines.set(lineKey(line), {
-        ...line,
-        quantity: Math.min(
-          MAX_QUANTITY,
-          (previous?.quantity ?? 0) + line.quantity,
-        ),
-      });
-    }
-    return [...lines.values()];
-  } catch {
-    return [];
-  }
+  products: ReadonlyArray<Product>,
+): ReadonlyArray<CartLine> {
+  return Option.match(decodeSavedCart(raw), {
+    onNone: () => [],
+    onSome: (saved) =>
+      saved.lines
+        .slice(0, MAX_SAVED_LINES)
+        .reduce<ReadonlyArray<CartLine>>((lines, candidate) => {
+          const restored = Option.filter(decodeSavedLine(candidate), (line) => {
+            const product = findProduct(products, line.productId);
+            return (
+              product !== undefined &&
+              validVariant(product, line.color, line.size)
+            );
+          });
+          return Option.match(restored, {
+            onNone: () => lines,
+            onSome: (line) =>
+              mergeLine(lines, { ...line, quantity: capped(line.quantity) }),
+          });
+        }, []),
+  });
 }
 
-function restoreOrder(raw: string | null): DemoOrder | null {
-  if (!raw) return null;
-  try {
-    const value: unknown = JSON.parse(raw);
-    if (
-      !record(value) ||
-      typeof value.reference !== 'string' ||
-      !/^DEMO-[A-Z0-9-]{1,40}$/.test(value.reference)
-    )
-      return null;
-    if (
-      typeof value.createdAt !== 'string' ||
-      !Number.isFinite(Date.parse(value.createdAt)) ||
-      !Array.isArray(value.lines) ||
-      !value.lines.length ||
-      value.lines.length > 500
-    )
-      return null;
-    const lines: OrderLine[] = [];
-    for (const line of value.lines) {
-      if (
-        !record(line) ||
-        typeof line.productId !== 'string' ||
-        typeof line.title !== 'string' ||
-        typeof line.size !== 'string'
-      )
-        return null;
-      if (
-        !['black', 'off-white'].includes(String(line.color)) ||
-        typeof line.image !== 'string' ||
-        !/^\/products\/[a-z0-9-]+\.(png|webp|jpg)$/.test(line.image)
-      )
-        return null;
-      if (
-        typeof line.quantity !== 'number' ||
-        !Number.isInteger(line.quantity) ||
-        line.quantity < 1 ||
-        line.quantity > MAX_QUANTITY
-      )
-        return null;
-      if (
-        typeof line.priceCents !== 'number' ||
-        !Number.isInteger(line.priceCents) ||
-        line.priceCents <= 0 ||
-        line.priceCents > 1000000
-      )
-        return null;
-      lines.push({
-        productId: line.productId,
-        title: line.title,
-        color: line.color as Color,
-        size: line.size,
-        image: line.image,
-        quantity: line.quantity,
-        priceCents: line.priceCents,
-      });
-    }
-    // Receipts saved before shipping was introduced keep their original total.
-    const shippingCents =
-      value.shippingCents === undefined ? 0 : value.shippingCents;
-    if (shippingCents !== 0 && shippingCents !== SHIPPING_CENTS) return null;
-    const totalCents = lines.reduce(
-      (sum, line) => sum + line.priceCents * line.quantity,
-      shippingCents,
-    );
-    if (value.totalCents !== totalCents) return null;
-    return {
-      reference: value.reference,
-      createdAt: value.createdAt,
-      lines,
-      shippingCents,
-      totalCents,
-    };
-  } catch {
-    return null;
-  }
-}
+/** The saved cart contains only identifiers, selections and quantities. */
+export const encodeCart = (lines: ReadonlyArray<CartLine>) =>
+  JSON.stringify({
+    version: 1,
+    lines: lines.map(({ productId, color, size, quantity }) => ({
+      productId,
+      color,
+      size,
+      quantity,
+    })),
+  });
 
-export function cartTotals(lines: CartLine[], products: Product[]) {
-  const prices = new Map(
-    products.map((product) => [product.id, product.priceCents]),
+export const encodeOrder = (order: DemoOrder) => JSON.stringify(order);
+
+const orderTotal = (lines: ReadonlyArray<OrderLine>, shippingCents: number) =>
+  lines.reduce(
+    (sum, line) => sum + line.priceCents * line.quantity,
+    shippingCents,
   );
+
+/** Restores the last demo receipt. Totals that do not match the lines are rejected. */
+export function restoreOrder(raw: string | null): Option.Option<DemoOrder> {
+  return decodeSavedOrder(raw).pipe(
+    Option.map((saved) => ({
+      ...saved,
+      shippingCents: saved.shippingCents ?? 0,
+    })),
+    Option.filter(
+      (order) =>
+        order.totalCents === orderTotal(order.lines, order.shippingCents),
+    ),
+  );
+}
+
+export function addLine(
+  lines: ReadonlyArray<CartLine>,
+  products: ReadonlyArray<Product>,
+  selection: Pick<CartLine, 'productId' | 'color' | 'size'>,
+  quantity = 1,
+): Option.Option<ReadonlyArray<CartLine>> {
+  const product = findProduct(products, selection.productId);
+  if (
+    !product ||
+    !validVariant(product, selection.color, selection.size) ||
+    !Number.isInteger(quantity) ||
+    quantity < 1
+  )
+    return Option.none();
+  return Option.some(
+    mergeLine(lines, { ...selection, quantity: capped(quantity) }),
+  );
+}
+
+export const isValidQuantity = (quantity: number) =>
+  Number.isInteger(quantity) && quantity >= 1 && quantity <= MAX_QUANTITY;
+
+/** Sets one line's quantity. Zero removes the line. Other invalid values change nothing. */
+export function setQuantity(
+  lines: ReadonlyArray<CartLine>,
+  key: LineKey,
+  quantity: number,
+): ReadonlyArray<CartLine> {
+  if (quantity === 0) return removeLine(lines, key);
+  if (!isValidQuantity(quantity)) return lines;
+  return lines.map((line) =>
+    lineKey(line) === key ? { ...line, quantity } : line,
+  );
+}
+
+export const removeLine = (lines: ReadonlyArray<CartLine>, key: LineKey) =>
+  lines.filter((line) => lineKey(line) !== key);
+
+export const itemCount = (lines: ReadonlyArray<CartLine>) =>
+  lines.reduce((sum, line) => sum + line.quantity, 0);
+
+export interface Totals {
+  subtotalCents: number;
+  shippingCents: number;
+  totalCents: number;
+}
+
+export function cartTotals(
+  lines: ReadonlyArray<CartLine>,
+  products: ReadonlyArray<Product>,
+): Totals {
   const subtotalCents = lines.reduce(
-    (sum, line) => sum + (prices.get(line.productId) ?? 0) * line.quantity,
+    (sum, line) =>
+      sum +
+      (findProduct(products, line.productId)?.priceCents ?? 0) * line.quantity,
     0,
   );
   const shippingCents = lines.length ? SHIPPING_CENTS : 0;
@@ -186,150 +226,44 @@ export function cartTotals(lines: CartLine[], products: Product[]) {
   };
 }
 
-export function createCart(initialProducts: Product[] = []) {
-  let products = initialProducts;
-  let productsById = new Map(products.map((product) => [product.id, product]));
-  let storage: StoragePort | undefined;
-  let session: StoragePort | undefined;
-  const failedStorage = new Set<string>();
-  const store = createStore<CartState>({
-    lines: [],
-    order: null,
-    ready: false,
-    storageBlocked: false,
+export const orderTotals = (order: DemoOrder): Totals => ({
+  subtotalCents: order.totalCents - order.shippingCents,
+  shippingCents: order.shippingCents,
+  totalCents: order.totalCents,
+});
+
+/** Builds the receipt snapshot. Returns none for an empty cart or a stale line. */
+export function createOrder(
+  lines: ReadonlyArray<CartLine>,
+  products: ReadonlyArray<Product>,
+  reference: string,
+  createdAt: string,
+): Option.Option<DemoOrder> {
+  if (!lines.length) return Option.none();
+  const orderLines: Array<OrderLine> = [];
+  for (const line of lines) {
+    const product = findProduct(products, line.productId);
+    if (!product || !validVariant(product, line.color, line.size))
+      return Option.none();
+    orderLines.push({
+      ...line,
+      title: product.title,
+      priceCents: product.priceCents,
+      image: productImage(product, line.color).src,
+    });
+  }
+  return Option.some({
+    reference,
+    createdAt,
+    lines: orderLines,
+    shippingCents: SHIPPING_CENTS,
+    totalCents: cartTotals(lines, products).totalCents,
   });
-
-  function storageStatus(key: string, failed: boolean) {
-    if (failed) failedStorage.add(key);
-    else failedStorage.delete(key);
-    const storageBlocked = failedStorage.size > 0;
-    if (storageBlocked !== store.get().storageBlocked)
-      store.setState((state) => ({ ...state, storageBlocked }));
-  }
-  function read(port: StoragePort | undefined, key: string) {
-    try {
-      const value = port?.getItem(key) ?? null;
-      storageStatus(key, !port);
-      return value;
-    } catch {
-      storageStatus(key, true);
-      return null;
-    }
-  }
-  function write(port: StoragePort | undefined, key: string, value: unknown) {
-    try {
-      port?.setItem(key, JSON.stringify(value));
-      storageStatus(key, !port);
-    } catch {
-      storageStatus(key, true);
-    }
-  }
-  function replace(lines: CartLine[], persist = true) {
-    store.setState((state) => ({ ...state, lines }));
-    if (persist) write(storage, CART_KEY, { version: 1, lines });
-  }
-
-  return {
-    store,
-    initialize(catalog: Product[], local?: StoragePort, tab?: StoragePort) {
-      if (store.get().ready) return;
-      products = catalog;
-      productsById = new Map(products.map((product) => [product.id, product]));
-      storage = local;
-      session = tab;
-      const lines = restoreLines(read(storage, CART_KEY), products);
-      const order = restoreOrder(read(session, ORDER_KEY));
-      store.setState((state) => ({ ...state, lines, order, ready: true }));
-    },
-    sync(raw: string | null) {
-      replace(restoreLines(raw, products), false);
-    },
-    add(productId: string, color: Color, size: string, quantity = 1) {
-      const product = productsById.get(productId);
-      if (
-        !store.get().ready ||
-        !product ||
-        !validVariant(product, color, size) ||
-        !Number.isInteger(quantity) ||
-        quantity < 1
-      )
-        return false;
-      const line = {
-        productId,
-        color,
-        size,
-        quantity: Math.min(quantity, MAX_QUANTITY),
-      };
-      const key = lineKey(line);
-      const existing = store.get().lines.find((item) => lineKey(item) === key);
-      const lines = existing
-        ? store.get().lines.map((item) =>
-            lineKey(item) === key
-              ? {
-                  ...item,
-                  quantity: Math.min(MAX_QUANTITY, item.quantity + quantity),
-                }
-              : item,
-          )
-        : [...store.get().lines, line];
-      replace(lines);
-      return true;
-    },
-    quantity(key: string, quantity: number) {
-      if (
-        !Number.isInteger(quantity) ||
-        quantity < 0 ||
-        quantity > MAX_QUANTITY
-      )
-        return;
-      replace(
-        store
-          .get()
-          .lines.flatMap((line) =>
-            lineKey(line) !== key
-              ? [line]
-              : quantity === 0
-                ? []
-                : [{ ...line, quantity }],
-          ),
-      );
-    },
-    remove(key: string) {
-      replace(store.get().lines.filter((line) => lineKey(line) !== key));
-    },
-    placeOrder(makeReference = demoReference): DemoOrder | null {
-      const selections = store.get().lines;
-      if (!selections.length) return null;
-      const lines: OrderLine[] = [];
-      for (const line of selections) {
-        const product = productsById.get(line.productId);
-        const image = product?.images.find(
-          (image) => image.color === line.color,
-        );
-        if (!product || !image || !validVariant(product, line.color, line.size))
-          return null;
-        lines.push({
-          ...line,
-          title: product.title,
-          priceCents: product.priceCents,
-          image: image.src,
-        });
-      }
-      const order: DemoOrder = {
-        reference: makeReference(),
-        createdAt: new Date().toISOString(),
-        lines,
-        shippingCents: SHIPPING_CENTS,
-        totalCents: cartTotals(selections, products).totalCents,
-      };
-      store.setState((state) => ({ ...state, order, lines: [] }));
-      write(session, ORDER_KEY, order);
-      write(storage, CART_KEY, { version: 1, lines: [] });
-      return order;
-    },
-  };
 }
 
-// This module instance is shared by the header island and the shop application.
-// Hydrate only after mounting so prerendered markup never contains browser state.
-export const cart = createCart();
+/** Formats random bytes as a demo order reference. */
+export const demoReference = (bytes: ReadonlyArray<number>) =>
+  `DEMO-${bytes
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase()}`;

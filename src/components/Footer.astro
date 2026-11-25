@@ -1,0 +1,29 @@
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-top">
+      <span class="eyebrow">LESS SLOP. MORE THOUGHT.</span>
+      <div>
+        <a href="/">The project ↗</a>
+        <a href="/shop">The shop ↗</a>
+      </div>
+    </div>
+    <a class="footer-wordmark" href="/">
+      noslopfactory<span>.*</span>
+    </a>
+    <div class="footer-bottom">
+      <span>
+        © <span data-current-year>{new Date().getFullYear()}</span>{' '}
+        noslopfactory
+      </span>
+      <span>A demo shop. Nothing for sale. Plenty to question.</span>
+      <span class="mono">HUMAN IN THE LOOP ↗</span>
+    </div>
+  </div>
+</footer>
+
+<script is:inline>
+  // The build sets the year. The visitor's clock keeps it current until the next build.
+  document.querySelectorAll('[data-current-year]').forEach((node) => {
+    node.textContent = String(new Date().getFullYear());
+  });
+</script>
